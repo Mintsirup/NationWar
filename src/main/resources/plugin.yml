@@ -1,0 +1,14 @@
+name: NationWar
+main: com.nationwar.NationWar
+version: 1.0
+api-version: 1.21
+author: subick
+
+commands:
+  menu:
+  team:
+  tpa:
+  tpaccept:
+  tpdeny:
+  gamestart:
+  core:
