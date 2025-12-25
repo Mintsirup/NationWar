@@ -1,14 +1,25 @@
 name: NationWar
 main: com.nationwar.NationWar
-version: 1.0
-api-version: 1.21
-author: subick
-
+version: 1.0.0
+api-version: "1.21"
+description: "NationWar - 국가 전쟁 플러그인 (초기 스켈레톤)"
 commands:
-  menu:
-  team:
-  tpa:
-  tpaccept:
-  tpdeny:
+  메뉴:
+    description: "NationWar 메뉴 열기"
+    usage: "/메뉴"
   gamestart:
-  core:
+    description: "게임 시작 (콘솔 전용)"
+    usage: "/gamestart"
+  팀:
+    description: "팀 관련 명령어"
+    usage: "/팀 <서브명령>"
+  tpa:
+    description: "텔레포트 요청"
+    usage: "/tpa <플레이어>"
+  국가창고:
+    description: "국가 창고 열기"
+    usage: "/국가창고"
+permissions:
+  nationwar.gamestart:
+    description: "게임을 시작할 수 있음 (서버 콘솔 우선)"
+    default: op
