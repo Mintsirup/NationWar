@@ -1,4 +1,4 @@
 package com.nationwar.team;
 
-public class Team {
+public class TeamGson {
 }

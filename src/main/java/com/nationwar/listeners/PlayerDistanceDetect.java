@@ -1,4 +1,4 @@
 package com.nationwar.listeners;
 
-public class PvpListener {
+public class PlayerDistanceDetect {
 }

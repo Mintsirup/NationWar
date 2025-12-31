@@ -1,4 +1,4 @@
 package com.nationwar.command;
 
-public class TeamCommand {
+public class MenuCommand {
 }
