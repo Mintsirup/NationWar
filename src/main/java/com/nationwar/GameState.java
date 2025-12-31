@@ -1,4 +1,6 @@
 package com.nationwar;
 
-public class GameState {
+public enum GameState {
+    WAITING,
+    RUNNING
 }
