@@ -1,26 +1,29 @@
 package com.nationwar;
 
+import com.nationwar.command.GamestartCommand;
+import com.nationwar.command.MenuCommand;
+import com.nationwar.command.TpaCommand;
+import com.nationwar.command.TeamCommand;
+import com.nationwar.command.TeamChestCommand;
+import com.nationwar.Listeners.PlayerDistanceDetect;
+import com.nationwar.Listeners.PvpListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class NationWar extends JavaPlugin {
 
-    private static NationWar instance;
-    public static NationWar getInstance() { return instance; }
-
-    private GameState gameState = GameState.WAITING;
-    public GameState getGameState() { return gameState; }
-    public void setGameState(GameState state) { this.gameState = state; }
-
     @Override
     public void onEnable() {
-        instance = this;
+        getCommand("gamestart").setExecutor(new GamestartCommand());
+        getCommand("메뉴").setExecutor(new MenuCommand());
+        getCommand("tpa").setExecutor(new TpaCommand());
+        getCommand("팀").setExecutor(new TeamCommand());
+        getCommand("국가창고").setExecutor(new TeamChestCommand());
 
-        // TODO: 명령어 / 리스너 등록 예정
-        getLogger().info("NationWar enabled");
+        getServer().getPluginManager().registerEvents(new PlayerDistanceDetect(), this);
+        getServer().getPluginManager().registerEvents(new PvpListener(), this);
     }
 
     @Override
     public void onDisable() {
-        getLogger().info("NationWar disabled");
     }
 }

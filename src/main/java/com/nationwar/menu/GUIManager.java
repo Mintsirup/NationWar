@@ -1,11 +1,20 @@
 package com.nationwar.menu;
 
-import com.nationwar.menu.menulist.InfoMenu;
+import com.nationwar.menu.menulist.MainMenu;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 public class GUIManager {
 
-    public static void openInfoMenu(Player player) {
-        new InfoMenu(player).open();
+    private final MainMenu mainMenu;
+
+    public GUIManager(Plugin plugin) {
+        this.mainMenu = new MainMenu();
+        Bukkit.getPluginManager().registerEvents(this.mainMenu, plugin);
+    }
+
+    public void openMainMenu(Player player) {
+        this.mainMenu.openMain(player);
     }
 }

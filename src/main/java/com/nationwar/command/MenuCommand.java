@@ -8,13 +8,21 @@ import org.bukkit.entity.Player;
 
 public class MenuCommand implements CommandExecutor {
 
+    private final GUIManager guiManager;
+
+    public MenuCommand(GUIManager guiManager) {
+        this.guiManager = guiManager;
+    }
+
     @Override
-    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player)) {
+            return true;
+        }
 
-        if (!(sender instanceof Player player)) return true;
-
-        // 가장 쉬운 메뉴: InfoMenu 먼저 연결
-        GUIManager.openInfoMenu(player);
+        Player player = (Player) sender;
+        guiManager.openMainMenu(player);
+        player.sendMessage("§f메뉴를 여셨습니다.");
         return true;
     }
 }
