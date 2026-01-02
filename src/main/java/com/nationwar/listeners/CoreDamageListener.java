@@ -1,4 +1,4 @@
-package com.nationwar.Listeners;
+package com.nationwar.listeners;
 
 public class CoreDamageListener {
 }
