@@ -7,6 +7,7 @@ import com.nationwar.command.TeamCommand;
 import com.nationwar.command.TpaCommand;
 import com.nationwar.listeners.PlayerDistanceDetect;
 import com.nationwar.listeners.PvpListener;
+import com.nationwar.listeners.InventoryClickListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class NationWar extends JavaPlugin {
@@ -25,6 +26,8 @@ public class NationWar extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new PlayerDistanceDetect(), this);
         getServer().getPluginManager().registerEvents(new PvpListener(), this);
+        getServer().getPluginManager().registerEvents(new InventoryClickListener(), this);
+
     }
 
     public static NationWar getInstance() {
