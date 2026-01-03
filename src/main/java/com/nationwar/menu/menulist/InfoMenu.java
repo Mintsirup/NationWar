@@ -7,21 +7,4 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-public class InfoMenu {
-
-    public void open(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, "정보");
-
-        inv.setItem(13, createItem(Material.PAPER, "국가 전쟁 정보"));
-
-        player.openInventory(inv);
-    }
-
-    private ItemStack createItem(Material mat, String name) {
-        ItemStack item = new ItemStack(mat);
-        ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(name);
-        item.setItemMeta(meta);
-        return item;
-    }
-}
+public class InfoMenu { /* TODO */ }

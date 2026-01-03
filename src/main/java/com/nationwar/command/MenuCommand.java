@@ -1,6 +1,5 @@
 package com.nationwar.command;
 
-import com.nationwar.menu.GUIManager;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -11,10 +10,10 @@ public class MenuCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
-        if (!(sender instanceof Player)) return true;
+        if (!(sender instanceof Player player)) return true;
 
-        Player player = (Player) sender;
-        GUIManager.openMainMenu(player);
+        // TODO GUIManager.openMainMenu(player)
+
         return true;
     }
 }
