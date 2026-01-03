@@ -5,6 +5,11 @@ import com.nationwar.command.MenuCommand;
 import com.nationwar.command.TeamChestCommand;
 import com.nationwar.command.TeamCommand;
 import com.nationwar.command.TpaCommand;
+
+import com.nationwar.listeners.TeamInviteChatListener;
+import com.nationwar.team.TeamGson;
+import com.nationwar.team.TeamMain;
+
 import com.nationwar.listeners.PlayerDistanceDetect;
 import com.nationwar.listeners.PvpListener;
 import com.nationwar.listeners.InventoryClickListener;
@@ -18,6 +23,9 @@ public class NationWar extends JavaPlugin {
     public void onEnable() {
         instance = this;
 
+        TeamMain.init();
+        TeamGson.load();
+
         getCommand("gamestart").setExecutor(new GamestartCommand());
         getCommand("메뉴").setExecutor(new MenuCommand());
         getCommand("팀").setExecutor(new TeamCommand());
@@ -27,7 +35,14 @@ public class NationWar extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerDistanceDetect(), this);
         getServer().getPluginManager().registerEvents(new PvpListener(), this);
         getServer().getPluginManager().registerEvents(new InventoryClickListener(), this);
+        getServer().getPluginManager().registerEvents(new TeamInviteChatListener(), this);
 
+
+    }
+
+    @Override
+    public void onDisable() {
+        TeamGson.save();
     }
 
     public static NationWar getInstance() {
