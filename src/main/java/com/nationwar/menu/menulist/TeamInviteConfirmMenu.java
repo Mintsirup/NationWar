@@ -1,24 +1,18 @@
 package com.nationwar.menu.menulist;
 
 import com.nationwar.menu.GUIManager;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 public class TeamInviteConfirmMenu {
-    public static void open(Player p, String teamName) {
-        Inventory inv = GUIManager.createMenu("§0팀 초대 확인: " + teamName, 27);
-
-        ItemStack accept = new ItemStack(Material.LIME_CONCRETE);
-        ItemMeta am = accept.getItemMeta(); am.setDisplayName("§a§l수락"); accept.setItemMeta(am);
-
-        ItemStack deny = new ItemStack(Material.RED_CONCRETE);
-        ItemMeta dm = deny.getItemMeta(); dm.setDisplayName("§c§l거절"); deny.setItemMeta(dm);
-
-        inv.setItem(11, accept);
-        inv.setItem(15, deny);
-        p.openInventory(inv);
+    public static Inventory getInventory() {
+        Inventory inv = Bukkit.createInventory(null, 27, "§0팀 초대 확인");
+        GUIManager.fillGui(inv, 11, 13, 15, 22);
+        inv.setItem(11, GUIManager.createItem(Material.RED_STAINED_GLASS_PANE, "§c거절", "§7팀 초대를 거절합니다."));
+        inv.setItem(13, GUIManager.createItem(Material.PAPER, "§a§l팀 초대", "§7초대한 팀: §f정보 없음", "§7초대한 플레이어: §f정보 없음"));
+        inv.setItem(15, GUIManager.createItem(Material.LIME_STAINED_GLASS_PANE, "§a수락", "§7팀 초대를 수락합니다."));
+        inv.setItem(22, GUIManager.createItem(Material.ARROW, "§7뒤로 가기"));
+        return inv;
     }
 }

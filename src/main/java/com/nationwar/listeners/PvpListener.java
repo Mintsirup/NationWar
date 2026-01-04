@@ -1,21 +1,25 @@
 package com.nationwar.listeners;
 
-import com.nationwar.NationWar;
+import com.nationwar.team.TeamMain;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 
 public class PvpListener implements Listener {
-    @EventHandler
-    public void onPvp(EntityDamageByEntityEvent e) {
-        if (e.getDamager() instanceof Player attacker && e.getEntity() instanceof Player victim) {
-            String teamA = NationWar.getInstance().getTeamMain().getPlayerTeam(attacker.getUniqueId());
-            String teamV = NationWar.getInstance().getTeamMain().getPlayerTeam(victim.getUniqueId());
+    private final TeamMain teamMain;
 
-            if (!teamA.equals("방랑자") && teamA.equals(teamV)) {
-                attacker.sendMessage("§c같은 팀원은 공격할 수 없습니다!");
-                e.setCancelled(true);
+    public PvpListener(TeamMain teamMain) {
+        this.teamMain = teamMain;
+    }
+
+    @EventHandler
+    public void onPvp(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Player p1 && event.getEntity() instanceof Player p2) {
+            String team1 = teamMain.playerTeams.getOrDefault(p1.getUniqueId(), "방랑자");
+            String team2 = teamMain.playerTeams.getOrDefault(p2.getUniqueId(), "방랑자");
+            if (!team1.equals("방랑자") && team1.equals(team2)) {
+                event.setCancelled(true);
             }
         }
     }

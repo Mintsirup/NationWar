@@ -1,30 +1,18 @@
 package com.nationwar.menu.menulist;
 
 import com.nationwar.menu.GUIManager;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import java.util.Arrays;
 
 public class MainMenu {
-    public static void open(Player p) {
-        Inventory inv = GUIManager.createMenu("§0메인 메뉴", 27);
-
-        inv.setItem(11, createItem(Material.IRON_SWORD, "§e§l팀 관리", "§f나의 팀 상태를 확인하고 관리합니다."));
-        inv.setItem(13, createItem(Material.BEACON, "§b§l코어 현황", "§f전 서버 코어의 점령 상태를 확인합니다."));
-        inv.setItem(15, createItem(Material.BOOK, "§a§l전쟁 정보", "§f전쟁 규칙 및 개인 스탯을 확인합니다."));
-
-        p.openInventory(inv);
-    }
-
-    private static ItemStack createItem(Material m, String name, String... lore) {
-        ItemStack item = new ItemStack(m);
-        ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(name);
-        meta.setLore(Arrays.asList(lore));
-        item.setItemMeta(meta);
-        return item;
+    public static Inventory getInventory() {
+        Inventory inv = Bukkit.createInventory(null, 27, "§0메인 메뉴");
+        GUIManager.fillGui(inv, 10, 13, 16, 22);
+        inv.setItem(10, GUIManager.createItem(Material.BEACON, "§c§l코어 관리", "§7국가의 코어 상태를 확인합니다.", "§7점령 및 전쟁 정보 포함", "", "§e클릭하여 이동"));
+        inv.setItem(13, GUIManager.createItem(Material.BOOK, "§b§l국가 정보", "§7국가 상태를 확인합니다.", "§7전쟁 진행 여부 및 시간", "", "§e클릭하여 이동"));
+        inv.setItem(16, GUIManager.createItem(Material.PLAYER_HEAD, "§a§l팀 관리", "§7팀 관련 설정을 관리합니다.", "", "§e클릭하여 이동"));
+        inv.setItem(22, GUIManager.createItem(Material.BARRIER, "§c닫기", "§7메뉴를 닫습니다."));
+        return inv;
     }
 }

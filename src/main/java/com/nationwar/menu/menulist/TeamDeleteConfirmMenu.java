@@ -1,24 +1,17 @@
 package com.nationwar.menu.menulist;
 
 import com.nationwar.menu.GUIManager;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 public class TeamDeleteConfirmMenu {
-    public static void open(Player p) {
-        Inventory inv = GUIManager.createMenu("§0팀 삭제 확인", 27);
-
-        ItemStack confirm = new ItemStack(Material.NETHER_WART_BLOCK);
-        ItemMeta cm = confirm.getItemMeta(); cm.setDisplayName("§4§l해체 확정"); confirm.setItemMeta(cm);
-
-        ItemStack cancel = new ItemStack(Material.BARRIER);
-        ItemMeta cam = cancel.getItemMeta(); cam.setDisplayName("§f취소"); cancel.setItemMeta(cam);
-
-        inv.setItem(11, confirm);
-        inv.setItem(15, cancel);
-        p.openInventory(inv);
+    public static Inventory getInventory() {
+        Inventory inv = Bukkit.createInventory(null, 27, "§0팀 삭제 확인");
+        GUIManager.fillGui(inv, 11, 13, 22);
+        inv.setItem(11, GUIManager.createItem(Material.GRAY_STAINED_GLASS_PANE, "§7취소", "§7팀 삭제를 취소합니다."));
+        inv.setItem(13, GUIManager.createItem(Material.BARRIER, "§4§l팀 삭제", "§c정말로 팀을 삭제하시겠습니까?", "§c이 작업은 되돌릴 수 없습니다.", "", "§e클릭하여 삭제"));
+        inv.setItem(22, GUIManager.createItem(Material.ARROW, "§7뒤로 가기"));
+        return inv;
     }
 }

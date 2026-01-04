@@ -1,22 +1,27 @@
 package com.nationwar.command;
 
-import com.nationwar.menu.menulist.TeamMenu;
+import com.nationwar.NationWar;
+import com.nationwar.team.TeamMain;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 public class TeamCommand implements CommandExecutor {
+    private final TeamMain teamMain;
+
+    public TeamCommand(TeamMain teamMain) {
+        this.teamMain = teamMain;
+    }
+
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) return true;
 
-        if (args.length == 0) {
-            TeamMenu.open(player);
-            return true;
+        if (args.length == 2 && args[0].equals("생성")) {
+            teamMain.createTeam(args[1], player.getUniqueId());
+            player.sendMessage(args[1] + " 팀이 생성되었습니다.");
         }
-
-        // 추가적인 명령어 로직 (/팀 생성 [이름] 등)이 필요할 경우 여기에 작성
         return true;
     }
 }

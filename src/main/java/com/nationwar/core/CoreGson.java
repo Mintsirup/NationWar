@@ -8,26 +8,20 @@ import java.util.Map;
 
 public class CoreGson {
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private final File file;
+    private final File file = new File(NationWar.getInstance().getDataFolder(), "cores.json");
 
-    public CoreGson() {
-        this.file = new File(NationWar.getInstance().getDataFolder(), "cores.json");
-    }
-
-    public void saveCores(Map<Integer, CoreMain.CoreData> coreData) {
+    public void save(Map<String, Object> data) {
+        if (!NationWar.getInstance().getDataFolder().exists()) NationWar.getInstance().getDataFolder().mkdirs();
         try (Writer writer = new FileWriter(file)) {
-            gson.toJson(coreData, writer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+            gson.toJson(data, writer);
+        } catch (IOException ignored) {}
     }
 
-    public Map<Integer, CoreMain.CoreData> loadCores() {
+    public Map<String, Object> load() {
         if (!file.exists()) return null;
         try (Reader reader = new FileReader(file)) {
             return gson.fromJson(reader, Map.class);
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException ignored) {
             return null;
         }
     }

@@ -1,40 +1,51 @@
 package com.nationwar.listeners;
 
-import com.nationwar.NationWar;
 import com.nationwar.core.CoreMain;
+import com.nationwar.team.TeamMain;
 import org.bukkit.entity.Ghast;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import java.time.LocalTime;
+import java.time.ZoneId;
 
 public class CoreDamageListener implements Listener {
     private final CoreMain coreMain;
-    public CoreDamageListener(CoreMain cm) { this.coreMain = cm; }
+    private final TeamMain teamMain;
 
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onCoreDamage(EntityDamageByEntityEvent event) {
+    public CoreDamageListener(CoreMain coreMain, TeamMain teamMain) {
+        this.coreMain = coreMain;
+        this.teamMain = teamMain;
+    }
+
+    @EventHandler
+    public void onDamage(EntityDamageByEntityEvent event) {
         if (event.getEntity() instanceof Ghast ghast && event.getDamager() instanceof Player player) {
-            if (!ghast.hasMetadata("core_hitbox")) return;
-
-            if (!coreMain.isCaptureTime()) {
-                player.sendMessage("§c지금은 전쟁 시간이 아닙니다! (전쟁시간 : 19:00 ~ 20:00)");
-                event.setCancelled(true);
-                return;
-            }
-
-            double damage = event.getFinalDamage();
-            if (damage <= 0) damage = 1.0;
-
-            for (int id : coreMain.getCores().keySet()) {
-                CoreMain.CoreData data = coreMain.getCores().get(id);
-                if (ghast.getLocation().distance(data.loc) < 5) { // 좌표 근접 확인
-                    coreMain.damageCore(id, damage, player);
-                    event.setDamage(0);
-                    ghast.setHealth(ghast.getMaxHealth()); // 가스트 죽음 방지
-                    return;
+            int coreIdx = -1;
+            for (int i : coreMain.coreEntities.keySet()) {
+                if (coreMain.coreEntities.get(i).getUniqueId().equals(ghast.getUniqueId())) {
+                    coreIdx = i;
+                    break;
                 }
+            }
+            if (coreIdx == -1) return;
+            event.setCancelled(true);
+
+            String team = teamMain.playerTeams.getOrDefault(player.getUniqueId(), "방랑자");
+            if (team.equals("방랑자")) return;
+
+            LocalTime now = LocalTime.now(ZoneId.of("Asia/Seoul"));
+            if (now.getHour() < 19 || now.getHour() >= 20) return;
+
+            double health = coreMain.coreHealth.get(coreIdx) - event.getFinalDamage();
+            if (health <= 0) {
+                coreMain.coreHealth.put(coreIdx, 5000.0);
+                coreMain.coreOwners.put(coreIdx, team);
+                coreMain.bossBars.get(coreIdx).setProgress(1.0);
+            } else {
+                coreMain.coreHealth.put(coreIdx, health);
+                coreMain.bossBars.get(coreIdx).setProgress(health / 5000.0);
             }
         }
     }

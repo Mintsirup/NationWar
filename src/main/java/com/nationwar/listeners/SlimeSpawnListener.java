@@ -1,18 +1,19 @@
 package com.nationwar.listeners;
 
-import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Slime;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.SlimeSplitEvent;
 
 public class SlimeSpawnListener implements Listener {
     @EventHandler
-    public void onSpawn(CreatureSpawnEvent e) {
-        if (e.getEntityType() == EntityType.SLIME || e.getEntityType() == EntityType.GHAST) {
-            // 플러그인이 소환한(CUSTOM) 것이 아니면 스폰 취소
-            if (e.getSpawnReason() != CreatureSpawnEvent.SpawnReason.CUSTOM) {
-                e.setCancelled(true);
-            }
-        }
+    public void onSpawn(CreatureSpawnEvent event) {
+        if (event.getEntity() instanceof Slime) event.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onSplit(SlimeSplitEvent event) {
+        event.setCancelled(true);
     }
 }

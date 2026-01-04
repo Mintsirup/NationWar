@@ -1,24 +1,36 @@
 package com.nationwar.listeners;
 
-import org.bukkit.Material;
+import com.nationwar.core.CoreMain;
+import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 
 public class BlockProtection implements Listener {
+    private final CoreMain coreMain;
+
+    public BlockProtection(CoreMain coreMain) {
+        this.coreMain = coreMain;
+    }
+
     @EventHandler
-    public void onBreak(BlockBreakEvent e) {
-        if (e.getBlock().getType() == Material.WHITE_CONCRETE) {
-            if (!e.getPlayer().isOp()) {
-                e.setCancelled(true);
-                e.getPlayer().sendMessage("§c코어 블록은 일반적인 방법으로 파괴할 수 없습니다.");
+    public void onBreak(BlockBreakEvent event) {
+        for (Location loc : coreMain.coreLocations) {
+            if (event.getBlock().getLocation().distance(loc) < 5) {
+                event.setCancelled(true);
+                return;
             }
         }
     }
 
     @EventHandler
-    public void onPlace(BlockPlaceEvent e) {
-        // 코어 주변 설치 제한 로직 필요 시 추가
+    public void onPlace(BlockPlaceEvent event) {
+        for (Location loc : coreMain.coreLocations) {
+            if (event.getBlock().getLocation().distance(loc) < 5) {
+                event.setCancelled(true);
+                return;
+            }
+        }
     }
 }
