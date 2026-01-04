@@ -1,0 +1,18 @@
+name: NationWar
+version: 1.0
+main: com.nationwar.NationWar
+api-version: 1.21.10
+
+commands:
+  팀:
+    description: 팀 명령어
+  tpa:
+    description: TPA 명령어
+  메뉴:
+    description: 메뉴 열기
+  gamestart:
+    description: 게임 시작
+  tpa_accept:
+    description: tpa 수락
+  tpa_deny:
+    description: tpa 거절

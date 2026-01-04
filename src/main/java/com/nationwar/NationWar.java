@@ -1,26 +1,48 @@
 package com.nationwar;
 
+import com.nationwar.command.GamestartCommand;
+import com.nationwar.command.MenuCommand;
+import com.nationwar.command.TeamChestCommand;
+import com.nationwar.command.TeamCommand;
+import com.nationwar.command.TpaCommand;
+import com.nationwar.core.CoreMain;
+import com.nationwar.listeners.PlayerDistanceDetect;
+import com.nationwar.listeners.PvpListener;
+import com.nationwar.menu.GUIManager;
+import com.nationwar.team.TeamChest;
+import com.nationwar.team.TeamMain;
+import com.nationwar.tpa.TpaMain;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class NationWar extends JavaPlugin {
 
+    private static NationWar instance;
+
+    public static NationWar getInstance() {
+        return instance;
+    }
+
     @Override
     public void onEnable() {
+        instance = this;
 
-        // TODO TeamMain.init()
-        // TODO CoreMain.init()
-        // TODO TpaMain.init()
+        TeamMain.init(this);
+        CoreMain.init(this);
+        TpaMain.init(this);
+        GUIManager.init(this);
 
-        // TODO TeamGson.load()
-        // TODO CoreGson.load()
+        getCommand("gamestart").setExecutor(new GamestartCommand());
+        getCommand("메뉴").setExecutor(new MenuCommand());
+        getCommand("팀").setExecutor(new TeamCommand());
+        getCommand("tpa").setExecutor(new TpaCommand());
+        getCommand("국가창고").setExecutor(new TeamChestCommand());
 
-        // TODO 명령어 등록 (/gamestart, /메뉴, /팀, /tpa, /국가창고)
-        // TODO 리스너 등록 (InventoryClickListener, PlayerDistanceDetect, PvpListener)
+        getServer().getPluginManager().registerEvents(new PlayerDistanceDetect(), this);
+        getServer().getPluginManager().registerEvents(new PvpListener(), this);
     }
 
     @Override
     public void onDisable() {
-        // TODO TeamGson.save()
-        // TODO CoreGson.save()
+        TeamChest.saveAll();
     }
 }
