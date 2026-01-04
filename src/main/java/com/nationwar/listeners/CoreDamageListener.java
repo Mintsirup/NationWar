@@ -43,9 +43,10 @@ public class CoreDamageListener implements Listener {
                 coreMain.coreHealth.put(coreIdx, 5000.0);
                 coreMain.coreOwners.put(coreIdx, team);
                 coreMain.bossBars.get(coreIdx).setProgress(1.0);
+                coreMain.saveCores(); // 점령 팀 변경 시 저장
             } else {
                 coreMain.coreHealth.put(coreIdx, health);
-                coreMain.bossBars.get(coreIdx).setProgress(health / 5000.0);
+                // 체력 변경 시 실시간 저장은 성능을 위해 선택적 (필요 시 호출)
             }
         }
     }

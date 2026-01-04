@@ -1,6 +1,5 @@
 package com.nationwar.command;
 
-import com.nationwar.NationWar;
 import com.nationwar.team.TeamMain;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -18,9 +17,11 @@ public class TeamCommand implements CommandExecutor {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) return true;
 
-        if (args.length == 2 && args[0].equals("생성")) {
-            teamMain.createTeam(args[1], player.getUniqueId());
-            player.sendMessage(args[1] + " 팀이 생성되었습니다.");
+        if (args.length >= 1) {
+            String teamName = args[0];
+            // 지시사항: 팀 생성은 누구나 가능함
+            teamMain.createTeam(teamName, player.getUniqueId());
+            player.sendMessage(teamName + " 팀이 생성되었습니다.");
         }
         return true;
     }
