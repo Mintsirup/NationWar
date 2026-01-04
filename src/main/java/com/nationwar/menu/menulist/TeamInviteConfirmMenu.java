@@ -1,6 +1,6 @@
 package com.nationwar.menu.menulist;
 
-import org.bukkit.Bukkit;
+import com.nationwar.menu.GUIManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -8,23 +8,17 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 public class TeamInviteConfirmMenu {
+    public static void open(Player p, String teamName) {
+        Inventory inv = GUIManager.createMenu("§0팀 초대 확인: " + teamName, 27);
 
-    public static Inventory create(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, "팀 초대 수락");
+        ItemStack accept = new ItemStack(Material.LIME_CONCRETE);
+        ItemMeta am = accept.getItemMeta(); am.setDisplayName("§a§l수락"); accept.setItemMeta(am);
 
-        ItemStack accept = new ItemStack(Material.LIME_WOOL);
-        ItemMeta a = accept.getItemMeta();
-        a.setDisplayName("§a초대 수락");
-        accept.setItemMeta(a);
-
-        ItemStack deny = new ItemStack(Material.RED_WOOL);
-        ItemMeta d = deny.getItemMeta();
-        d.setDisplayName("§c초대 거절");
-        deny.setItemMeta(d);
+        ItemStack deny = new ItemStack(Material.RED_CONCRETE);
+        ItemMeta dm = deny.getItemMeta(); dm.setDisplayName("§c§l거절"); deny.setItemMeta(dm);
 
         inv.setItem(11, accept);
         inv.setItem(15, deny);
-
-        return inv;
+        p.openInventory(inv);
     }
 }

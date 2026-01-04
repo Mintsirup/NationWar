@@ -1,36 +1,21 @@
 package com.nationwar.menu;
 
-import com.nationwar.menu.menulist.*;
-import org.bukkit.entity.Player;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 public class GUIManager {
-
-    public static void openMain(Player player) {
-        player.openInventory(new MainMenu(player).getInventory());
-    }
-
-    public static void openTeam(Player player) {
-        player.openInventory(new TeamMenu(player).getInventory());
-    }
-
-    public static void openTeamInvite(Player player) {
-        player.openInventory(new TeamInviteListMenu(player).getInventory());
-    }
-
-    public static void openTeamColor(Player player) {
-        player.openInventory(new TeamColorMenu(player).getInventory());
-    }
-
-    public static void openTeamDeleteConfirm(Player player) {
-        player.openInventory(new TeamDeleteConfirmMenu(player).getInventory());
-    }
-
-    public static void openCore(Player player) {
-        player.openInventory(new CoreMenu(player).getInventory());
-    }
-
-    public static void openInfo(Player player) {
-        player.openInventory(new InfoMenu(player).getInventory());
+    public static Inventory createMenu(String title, int size) {
+        Inventory inv = Bukkit.createInventory(null, size, title);
+        ItemStack pane = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        ItemMeta meta = pane.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(" ");
+            pane.setItemMeta(meta);
+        }
+        for (int i = 0; i < size; i++) inv.setItem(i, pane);
+        return inv;
     }
 }

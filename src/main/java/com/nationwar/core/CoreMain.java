@@ -1,184 +1,148 @@
 package com.nationwar.core;
 
 import com.nationwar.NationWar;
-import com.nationwar.team.TeamMain;
 import org.bukkit.*;
-import org.bukkit.boss.*;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Ghast;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.inventory.meta.FireworkMeta;
-import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.metadata.FixedMetadataValue;
 
-import java.time.LocalTime;
-import java.time.ZoneId;
+import java.io.Serializable;
 import java.util.*;
 
-public class CoreMain implements Listener {
-
-    private final NationWar plugin;
-    private final Map<Integer, Location> coreLocations = new HashMap<>();
-    private final Map<Integer, Integer> coreHp = new HashMap<>();
-    private final Map<Integer, String> coreOwner = new HashMap<>();
+public class CoreMain {
+    private final Map<Integer, CoreData> cores = new HashMap<>();
     private final Map<Integer, BossBar> bossBars = new HashMap<>();
+    private boolean captureTime = false;
+    private final CoreGson coreGson;
 
-    private boolean gameEnded = false;
-
-    private static final int MAX_HP = 5000;
-
-    public CoreMain(NationWar plugin) {
-        this.plugin = plugin;
+    public CoreMain() {
+        this.coreGson = new CoreGson();
     }
 
-    public void generateCores(World world) {
-        Random random = new Random();
+    // 코어 데이터 클래스
+    public static class CoreData implements Serializable {
+        public double x, y, z;
+        public String worldName;
+        public String ownerTeam;
+        public double hp;
+        public transient Location loc;
+
+        public CoreData(double x, double y, double z, String worldName, String ownerTeam, double hp) {
+            this.x = x; this.y = y; this.z = z;
+            this.worldName = worldName;
+            this.ownerTeam = ownerTeam;
+            this.hp = hp;
+            this.loc = new Location(Bukkit.getWorld(worldName), x, y, z);
+        }
+    }
+
+    public void spawnCores() {
+        World world = Bukkit.getWorlds().get(0);
+        Random r = new Random();
+        clearExistingCores();
+        cores.clear();
 
         for (int i = 1; i <= 6; i++) {
-            int x = random.nextInt(14000) - 7000;
-            int z = random.nextInt(14000) - 7000;
-            int y = world.getHighestBlockYAt(x, z) + 1;
+            int x = r.nextInt(15001) - 7500;
+            int z = r.nextInt(15001) - 7500;
+            int y = world.getHighestBlockYAt(x, z);
+            if (y < -60) y = 64;
 
-            Location base = new Location(world, x, y, z);
-
-            for (int dx = 0; dx < 4; dx++)
-                for (int dy = 0; dy < 4; dy++)
-                    for (int dz = 0; dz < 4; dz++)
-                        base.clone().add(dx, dy, dz).getBlock().setType(Material.WHITE_CONCRETE);
-
-            coreLocations.put(i, base);
-            coreHp.put(i, MAX_HP);
-            coreOwner.put(i, "NONE");
-
-            BossBar bar = Bukkit.createBossBar(
-                    "코어 #" + i,
-                    BarColor.WHITE,
-                    BarStyle.SEGMENTED_10
-            );
-            bar.setVisible(true);
-            bossBars.put(i, bar);
-        }
-    }
-
-    private void completeCapture(int coreId) {
-        String team = TeamMain.getNearestTeam(coreLocations.get(coreId));
-        if (team == null) return;
-
-        coreOwner.put(coreId, team);
-        coreHp.put(coreId, MAX_HP);
-        bossBars.get(coreId).setProgress(1.0);
-
-        Bukkit.broadcastMessage("§a[국가전쟁] §f코어 #" + coreId + "가 §e" + team + " §f팀에게 점령되었습니다.");
-
-        checkWinCondition(team);
-    }
-    private void checkWinCondition(String team) {
-        if (gameEnded) return;
-
-        for (String owner : coreOwner.values()) {
-            if (!team.equals(owner)) return;
-        }
-
-        endGame(team);
-    }
-
-    private void endGame(String winner) {
-        gameEnded = true;
-
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            String team = TeamMain.getPlayerTeam(player);
-
-            boolean isWinner = winner.equals(team);
-
-            int fireworkCount = isWinner ? 3 : 1;
-
-            for (int i = 0; i < fireworkCount; i++) {
-                Firework fw = player.getWorld().spawn(player.getLocation(), Firework.class);
-                FireworkMeta meta = fw.getFireworkMeta();
-
-                meta.addEffect(
-                        FireworkEffect.builder()
-                                .with(FireworkEffect.Type.BALL_LARGE)
-                                .withColor(isWinner ? Color.YELLOW : Color.WHITE)
-                                .withFade(Color.WHITE)
-                                .trail(true)
-                                .flicker(true)
-                                .build()
-                );
-
-                meta.setPower(1);
-                fw.setFireworkMeta(meta);
-            }
-
-            if (isWinner) {
-                player.sendTitle(
-                        "§6승리하셨습니다!",
-                        "§f" + winner + " 팀이 전쟁에서 승리했습니다",
-                        10, 80, 20
-                );
-
-                player.sendMessage("§a[국가전쟁] §f축하드립니다! 당신의 팀이 전쟁에서 승리했습니다!");
-            } else {
-                player.sendTitle(
-                        "§c게임이 종료되었습니다",
-                        "§f수고하셨습니다",
-                        10, 80, 20
-                );
-            }
-        }
-
-        Bukkit.broadcastMessage("§a[국가전쟁] §f게임이 종료되었습니다. 수고하셨습니다.");
-
-        Bukkit.getWorlds().forEach(world -> world.setPVP(false));
-    }
-
-    @EventHandler
-    public void onGhastDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Ghast)) return;
-
-        for (int id : coreLocations.keySet()) {
-            Location core = coreLocations.get(id);
-            if (event.getEntity().getLocation().distance(core) > 3) continue;
-
-            int hp = coreHp.get(id) - 50;
-            coreHp.put(id, hp);
-
-            BossBar bar = bossBars.get(id);
-            bar.setProgress(Math.max(0, hp / (double) MAX_HP));
-
-            if (hp <= 0) {
-                startCapture(id);
-            }
-        }
-    }
-
-    private void startCapture(int coreId) {
-        LocalTime now = LocalTime.now(ZoneId.of("Asia/Seoul"));
-        if (now.isBefore(LocalTime.of(19, 0)) || now.isAfter(LocalTime.of(20, 0))) return;
-
-        new BukkitRunnable() {
-            int time = 30;
-
-            @Override
-            public void run() {
-                if (time-- <= 0) {
-                    completeCapture(coreId);
-                    cancel();
+            // 4x4x4 콘크리트 배치
+            for (int dy = 0; dy < 4; dy++) {
+                for (int dx = 0; dx < 4; dx++) {
+                    for (int dz = 0; dz < 4; dz++) {
+                        world.getBlockAt(x + dx, y + dy, z + dz).setType(Material.WHITE_CONCRETE);
+                    }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 20L);
+
+            // 가스트 히트박스 소환
+            Location ghastLoc = new Location(world, x + 2.0, y + 2.0, z + 2.0);
+            Ghast ghast = (Ghast) world.spawnEntity(ghastLoc, EntityType.GHAST);
+            ghast.setAI(false);
+            ghast.setInvisible(true);
+            ghast.setSilent(true);
+            ghast.setPersistent(true);
+            ghast.setMetadata("core_hitbox", new FixedMetadataValue(NationWar.getInstance(), true));
+
+            CoreData data = new CoreData(x, y, z, world.getName(), "없음", 5000);
+            cores.put(i, data);
+
+            BossBar bar = Bukkit.createBossBar("코어 " + i + " (소유: 없음)", BarColor.WHITE, BarStyle.SOLID);
+            bossBars.put(i, bar);
+        }
+        coreGson.saveCores(cores);
     }
 
-    private void completeCapture(int coreId) {
-        String team = TeamMain.getNearestTeam(coreLocations.get(coreId));
-        if (team == null) return;
+    public void damageCore(int id, double damage, Player damager) {
+        CoreData data = cores.get(id);
+        String team = NationWar.getInstance().getTeamMain().getPlayerTeam(damager.getUniqueId());
 
-        coreOwner.put(coreId, team);
-        coreHp.put(coreId, MAX_HP);
-        bossBars.get(coreId).setProgress(1.0);
+        if (team.equals("방랑자")) return;
 
-        Bukkit.broadcastMessage("§a[국가전쟁] §f코어 #" + coreId + "가 §e" + team + " §f팀에게 점령되었습니다.");
+        data.hp -= damage;
+        if (bossBars.containsKey(id)) {
+            bossBars.get(id).setProgress(Math.max(0, data.hp / 5000.0));
+        }
+
+        if (data.hp <= 0) {
+            data.ownerTeam = team;
+            data.hp = 5000;
+            Bukkit.broadcastMessage("§8[§6!§8] §b" + team + "§f 팀이 §e" + id + "번 코어§f를 점령했습니다!");
+
+            if (bossBars.containsKey(id)) {
+                bossBars.get(id).setTitle("코어 " + id + " (소유: " + team + ")");
+                bossBars.get(id).setColor(BarColor.BLUE);
+            }
+        }
     }
+
+    public void checkWinner() {
+        Map<String, Integer> score = new HashMap<>();
+        for (CoreData d : cores.values()) {
+            if (!d.ownerTeam.equals("없음")) {
+                score.put(d.ownerTeam, score.getOrDefault(d.ownerTeam, 0) + 1);
+            }
+        }
+
+        for (Map.Entry<String, Integer> entry : score.entrySet()) {
+            if (entry.getValue() == 6) {
+                broadcastVictory(entry.getKey());
+                return;
+            }
+        }
+        Bukkit.broadcastMessage("§7[!] 모든 코어를 점령한 팀이 없어 승리팀 없이 전쟁이 종료되었습니다.");
+    }
+
+    private void broadcastVictory(String team) {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendTitle("§b§l" + team + " §f팀이 §6§l승리§f하셨습니다!", "§e모두 수고하셨습니다.", 10, 100, 20);
+            p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+
+            Firework fw = p.getWorld().spawn(p.getLocation(), Firework.class);
+            FireworkMeta fm = fw.getFireworkMeta();
+            fm.addEffect(FireworkEffect.builder().withColor(Color.BLUE).withFade(Color.YELLOW).with(FireworkEffect.Type.BALL_LARGE).build());
+            fw.setFireworkMeta(fm);
+        }
+    }
+
+    public void clearExistingCores() {
+        Bukkit.getWorlds().get(0).getEntitiesByClass(Ghast.class).forEach(g -> {
+            if (g.hasMetadata("core_hitbox")) g.remove();
+        });
+        bossBars.values().forEach(BossBar::removeAll);
+        bossBars.clear();
+    }
+
+    public Map<Integer, CoreData> getCores() { return cores; }
+    public Map<Integer, BossBar> getBossBars() { return bossBars; }
+    public boolean isCaptureTime() { return captureTime; }
+    public void setCaptureTime(boolean b) { this.captureTime = b; }
 }

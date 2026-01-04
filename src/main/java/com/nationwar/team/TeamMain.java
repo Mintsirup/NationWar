@@ -1,196 +1,44 @@
 package com.nationwar.team;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
-
+import com.nationwar.NationWar;
 import java.util.*;
 
 public class TeamMain {
+    private final Map<UUID, String> playerTeams = new HashMap<>(); // 유저 UUID - 팀 이름
+    private final Map<String, List<UUID>> teamMembers = new HashMap<>(); // 팀 이름 - 멤버 UUID 리스트
+    private final TeamChest teamChest;
+    private final TeamGson teamGson;
 
-    private static final Map<String, TeamMain> teams = new HashMap<>();
-    private static final Map<UUID, TeamMain> playerTeamMap = new HashMap<>();
-
-    private final String name;
-    private ChatColor color;
-    private UUID leader;
-    private final Set<UUID> members = new HashSet<>();
-    Inventory teamChest;
-    private final Set<Integer> ownedCores = new HashSet<>();
-
-    /* ================= 방랑자 ================= */
-
-    private static TeamMain wandererTeam;
-
-    public static void initWandererTeam() {
-        wandererTeam = new TeamMain("방랑자", ChatColor.GRAY, null);
-        teams.put("방랑자", wandererTeam);
+    public TeamMain() {
+        this.teamChest = new TeamChest();
+        this.teamGson = new TeamGson();
+        // 플러그인 시작 시 데이터 로드 로직을 여기에 추가할 수 있습니다.
     }
 
-    public static TeamMain getWandererTeam() {
-        return wandererTeam;
+    // 플레이어의 팀 확인 (없으면 "방랑자" 반환)
+    public String getPlayerTeam(UUID uuid) {
+        return playerTeams.getOrDefault(uuid, "방랑자");
     }
 
-    /* ================= 생성 ================= */
-
-    public TeamMain(String name, ChatColor color, UUID leader) {
-        this.name = name;
-        this.color = color;
-        this.leader = leader;
-
-        if (leader != null) {
-            members.add(leader);
-            playerTeamMap.put(leader, this);
-        }
-
-        this.teamChest = Bukkit.createInventory(null, 54, color + name + " 국가 창고");
-        teams.put(name, this);
+    // 팀 생성 및 가입
+    public void createTeam(String teamName, UUID leaderUUID) {
+        if (playerTeams.containsKey(leaderUUID)) return;
+        playerTeams.put(leaderUUID, teamName);
+        teamMembers.computeIfAbsent(teamName, k -> new ArrayList<>()).add(leaderUUID);
     }
 
-    /* ================= 팀 생성 ================= */
-
-    public static boolean createTeam(Player creator, String teamName) {
-        if (teams.containsKey(teamName)) {
-            creator.sendMessage("이미 존재하는 팀 이름입니다.");
-            return false;
-        }
-
-        if (getPlayerTeam(creator) != wandererTeam) {
-            creator.sendMessage("이미 팀에 소속되어 있습니다.");
-            return false;
-        }
-
-        new TeamMain(teamName, ChatColor.WHITE, creator.getUniqueId());
-        creator.sendMessage("팀이 생성되었습니다.");
-        return true;
-    }
-
-    /* ================= 팀 조회 ================= */
-
-    public static TeamMain getPlayerTeam(Player player) {
-        return playerTeamMap.getOrDefault(player.getUniqueId(), wandererTeam);
-    }
-
-    public static Collection<TeamMain> getAllTeams() {
-        return teams.values();
-    }
-
-    /* ================= 초대 ================= */
-
-    public boolean invite(Player inviter, Player target) {
-
-        if (!isLeader(inviter)) {
-            inviter.sendMessage("팀장만 초대할 수 있습니다.");
-            return false;
-        }
-
-        if (target == null) {
-            inviter.sendMessage("플레이어를 찾을 수 없습니다.");
-            return false;
-        }
-
-        TeamMain targetTeam = getPlayerTeam(target);
-
-        if (targetTeam == this) {
-            inviter.sendMessage("이미 같은 팀에 소속되어 있습니다.");
-            return false;
-        }
-
-        if (targetTeam != wandererTeam) {
-            targetTeam.members.remove(target.getUniqueId());
-        }
-
-        setPlayerTeam(target, this);
-
-        target.sendMessage(color + name + " 팀에 초대되었습니다.");
-        inviter.sendMessage("플레이어를 팀에 초대하였습니다.");
-        return true;
-    }
-
-    /* ================= 추방 ================= */
-
-    public boolean kick(Player kicker, Player target) {
-
-        if (!isLeader(kicker)) {
-            kicker.sendMessage("팀장만 추방할 수 있습니다.");
-            return false;
-        }
-
-        if (target == null) {
-            kicker.sendMessage("플레이어를 찾을 수 없습니다.");
-            return false;
-        }
-
-        if (!members.contains(target.getUniqueId())) {
-            kicker.sendMessage("해당 플레이어는 팀원이 아닙니다.");
-            return false;
-        }
-
-        if (leader.equals(target.getUniqueId())) {
-            kicker.sendMessage("팀장은 추방할 수 없습니다.");
-            return false;
-        }
-
-        members.remove(target.getUniqueId());
-        setPlayerTeam(target, wandererTeam);
-
-        target.sendMessage("팀에서 추방되었습니다.");
-        kicker.sendMessage("플레이어를 팀에서 추방하였습니다.");
-        return true;
-    }
-
-    /* ================= 팀 삭제 ================= */
-
-    public void delete() {
-        for (UUID uuid : new HashSet<>(members)) {
-            Player p = Bukkit.getPlayer(uuid);
-            if (p != null) {
-                setPlayerTeam(p, wandererTeam);
+    // 팀 해체
+    public void deleteTeam(String teamName) {
+        List<UUID> members = teamMembers.get(teamName);
+        if (members != null) {
+            for (UUID uuid : members) {
+                playerTeams.remove(uuid);
             }
+            teamMembers.remove(teamName);
         }
-        ownedCores.clear();
-        teams.remove(name);
     }
 
-    /* ================= 내부 ================= */
-
-    private static void setPlayerTeam(Player player, TeamMain team) {
-        TeamMain old = playerTeamMap.get(player.getUniqueId());
-        if (old != null) {
-            old.members.remove(player.getUniqueId());
-        }
-        playerTeamMap.put(player.getUniqueId(), team);
-        team.members.add(player.getUniqueId());
-    }
-
-    private boolean isLeader(Player player) {
-        return leader != null && leader.equals(player.getUniqueId());
-    }
-
-    /* ================= Getter ================= */
-
-    public String getName() {
-        return name;
-    }
-
-    public String getDisplayName() {
-        return color + name;
-    }
-
-    public ChatColor getColor() {
-        return color;
-    }
-
-    public Inventory getTeamChest() {
-        return teamChest;
-    }
-
-    public Set<UUID> getMembers() {
-        return members;
-    }
-
-    public boolean ownsCore(int id) {
-        return ownedCores.contains(id);
-    }
+    // Getter들
+    public TeamChest getTeamChest() { return teamChest; }
+    public Map<String, List<UUID>> getTeamMembers() { return teamMembers; }
 }

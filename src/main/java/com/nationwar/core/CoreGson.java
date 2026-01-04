@@ -1,31 +1,31 @@
 package com.nationwar.core;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-
+import com.google.gson.GsonBuilder;
+import com.nationwar.NationWar;
 import java.io.*;
-import java.lang.reflect.Type;
 import java.util.Map;
 
 public class CoreGson {
+    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private final File file;
 
-    private static final Gson gson = new Gson();
-    private static final File file = new File("plugins/NationWar/core.json");
+    public CoreGson() {
+        this.file = new File(NationWar.getInstance().getDataFolder(), "cores.json");
+    }
 
-    public static void save(Map<Integer, String> ownerMap) {
+    public void saveCores(Map<Integer, CoreMain.CoreData> coreData) {
         try (Writer writer = new FileWriter(file)) {
-            gson.toJson(ownerMap, writer);
+            gson.toJson(coreData, writer);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public static Map<Integer, String> load() {
+    public Map<Integer, CoreMain.CoreData> loadCores() {
         if (!file.exists()) return null;
-
         try (Reader reader = new FileReader(file)) {
-            Type type = new TypeToken<Map<Integer, String>>(){}.getType();
-            return gson.fromJson(reader, type);
+            return gson.fromJson(reader, Map.class);
         } catch (IOException e) {
             e.printStackTrace();
             return null;

@@ -1,23 +1,16 @@
 package com.nationwar.menu.menulist;
 
-import org.bukkit.Bukkit;
+import com.nationwar.menu.GUIManager;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 public class TeamColorMenu {
-
-    private final Inventory inv;
-
-    public TeamColorMenu(org.bukkit.entity.Player player) {
-        inv = Bukkit.createInventory(null, 27, "팀 색 설정");
-
-        inv.setItem(11, new ItemStack(Material.RED_DYE));
-        inv.setItem(13, new ItemStack(Material.BLUE_DYE));
-        inv.setItem(15, new ItemStack(Material.GREEN_DYE));
-    }
-
-    public Inventory getInventory() {
-        return inv;
+    public static void open(Player p) {
+        Inventory inv = GUIManager.createMenu("§0팀 색상 설정", 27);
+        Material[] colors = {Material.RED_WOOL, Material.ORANGE_WOOL, Material.YELLOW_WOOL, Material.LIME_WOOL, Material.BLUE_WOOL, Material.PURPLE_WOOL};
+        for (int i = 0; i < colors.length; i++) inv.setItem(10 + i, new ItemStack(colors[i]));
+        p.openInventory(inv);
     }
 }
