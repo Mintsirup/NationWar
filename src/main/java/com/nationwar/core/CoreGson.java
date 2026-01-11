@@ -1,41 +1,72 @@
 package com.nationwar.core;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.nationwar.NationWar;
-import java.io.*;
-import java.util.*;
+import com.google.gson.*;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CoreGson {
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private static File file;
-    private static CoreContainer container = new CoreContainer();
 
-    public static class CoreContainer {
-        public List<CoreData> cores = new ArrayList<>();
+    private final File file;
+
+    public CoreGson(File dataFolder) {
+        this.file = new File(dataFolder, "core.json");
     }
 
-    public static class CoreData {
-        public String owner = "없음";
-        public double hp = 5000.0;
-        public double x, y, z;
-        public int id;
+    public List<Location> loadCores() {
+        List<Location> cores = new ArrayList<>();
+
+        if (!file.exists()) {
+            saveCores(cores);
+            return cores;
+        }
+
+        try (FileReader reader = new FileReader(file)) {
+            JsonElement element = JsonParser.parseReader(reader);
+            if (!element.isJsonArray()) return cores;
+
+            JsonArray array = element.getAsJsonArray();
+            for (JsonElement e : array) {
+                JsonObject obj = e.getAsJsonObject();
+
+                String world = obj.get("world").getAsString();
+                double x = obj.get("x").getAsDouble();
+                double y = obj.get("y").getAsDouble();
+                double z = obj.get("z").getAsDouble();
+
+                cores.add(new Location(
+                        Bukkit.getWorld(world),
+                        x, y, z
+                ));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return cores;
     }
 
-    public static void load() {
-        file = new File(NationWar.getInstance().getDataFolder(), "core.json");
-        if (file.exists()) {
-            try (Reader r = new FileReader(file)) {
-                container = gson.fromJson(r, CoreContainer.class);
-            } catch (IOException e) { e.printStackTrace(); }
+    public void saveCores(List<Location> cores) {
+        JsonArray array = new JsonArray();
+
+        for (Location loc : cores) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("world", loc.getWorld().getName());
+            obj.addProperty("x", loc.getX());
+            obj.addProperty("y", loc.getY());
+            obj.addProperty("z", loc.getZ());
+            array.add(obj);
+        }
+
+        try (FileWriter writer = new FileWriter(file)) {
+            new GsonBuilder().setPrettyPrinting().create().toJson(array, writer);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
-
-    public static void save() {
-        try (Writer w = new FileWriter(file)) {
-            gson.toJson(container, w);
-        } catch (IOException e) { e.printStackTrace(); }
-    }
-
-    public static List<CoreData> getCores() { return container.cores; }
 }

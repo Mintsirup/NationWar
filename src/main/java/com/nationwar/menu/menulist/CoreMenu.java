@@ -1,28 +1,63 @@
 package com.nationwar.menu.menulist;
 
-import com.nationwar.core.CoreGson;
-import com.nationwar.menu.GUIManager;
-import com.nationwar.team.TeamMain;
+import com.nationwar.core.CoreMain;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
-public class CoreMenu {
-    public static void open(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, "§8코어 메뉴");
-        String myTeam = TeamMain.getPlayerTeam(player);
+public class CoreMenu implements GUIMenu {
+
+    private final Inventory inventory;
+
+    public CoreMenu(Player player) {
+        this.inventory = Bukkit.createInventory(this, 27, "코어 메뉴");
+
+        CoreMain coreMain = CoreMain.getInstance();
+
         int[] slots = {10, 11, 12, 14, 15, 16};
 
         for (int i = 0; i < 6; i++) {
-            CoreGson.CoreData core = CoreGson.getCore(i);
-            boolean isMine = core.owner.equals(myTeam) && !myTeam.equals("방랑자");
+            boolean owned = coreMain.isOwnedByPlayerTeam(player, i);
 
-            Material mat = isMine ? Material.BEACON : Material.BARRIER;
-            String status = isMine ? "§a[점령 중]" : "§c[미점령]";
-            inv.setItem(slots[i], GUIManager.createItem(mat, "§l코어 " + i + " " + status,
-                    isMine ? "§7클릭 시 10초 후 이동합니다." : "§7소유한 팀만 이동 가능합니다."));
+            Material mat = owned ? Material.BEACON : Material.BARRIER;
+            String name = owned ? "§a코어 " + i : "§c코어 " + i;
+
+            inventory.setItem(slots[i], item(mat, name));
         }
-        player.openInventory(inv);
+    }
+
+    private ItemStack item(Material mat, String name) {
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(name);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    @Override
+    public Inventory getInventory() {
+        return inventory;
+    }
+
+    @Override
+    public Inventory getInventoryHolder() {
+        return inventory;
+    }
+
+    @Override
+    public void onClick(Player player, int slot) {
+        CoreMain coreMain = CoreMain.getInstance();
+
+        int[] slots = {10, 11, 12, 14, 15, 16};
+
+        for (int i = 0; i < slots.length; i++) {
+            if (slot == slots[i]) {
+                coreMain.tryTeleportToCore(player, i);
+                return;
+            }
+        }
     }
 }

@@ -1,61 +1,79 @@
 package com.nationwar.tpa;
 
 import com.nationwar.NationWar;
-import com.nationwar.team.TeamMain;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+
 import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class TpaMain {
-    public static final HashMap<UUID, UUID> tpaRequests = new HashMap<>();
 
-    public static void sendRequest(Player sender, Player target) {
-        String senderTeam = TeamMain.getPlayerTeam(sender);
-        String targetTeam = TeamMain.getPlayerTeam(target);
+    private final NationWar plugin;
 
-        if (senderTeam.equals("방랑자") || !senderTeam.equals(targetTeam)) {
-            sender.sendMessage("§c[!] TPA는 같은 팀원에게만 가능합니다.");
-            return;
-        }
+    // 요청자 → 대상
+    private final Map<UUID, UUID> requests = new HashMap<>();
+    // 요청자 → 만료 태스크
+    private final Map<UUID, BukkitTask> expireTasks = new HashMap<>();
+    // 요청자 → 마지막 사용 시간
+    private final Map<UUID, Long> cooldowns = new HashMap<>();
 
-        tpaRequests.put(target.getUniqueId(), sender.getUniqueId());
+    private static final long COOLDOWN = 20 * 60 * 1000L; // 20분
+    private static final long EXPIRE = 60 * 20L; // 1분 (틱)
 
-        TextComponent msg = new TextComponent("§e[!] " + sender.getName() + "님의 TPA 요청: ");
-        TextComponent accept = new TextComponent("§a§l[수락] ");
-        accept.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpa 수락"));
-        TextComponent deny = new TextComponent("§c§l[거절]");
-        deny.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpa 거절"));
+    public TpaMain(NationWar plugin) {
+        this.plugin = plugin;
+    }
 
-        msg.addExtra(accept);
-        msg.addExtra(deny);
-        target.spigot().sendMessage(msg);
-        sender.sendMessage("§a[!] 요청을 보냈습니다.");
+    public boolean hasCooldown(Player player) {
+        if (!cooldowns.containsKey(player.getUniqueId())) return false;
+        return System.currentTimeMillis() - cooldowns.get(player.getUniqueId()) < COOLDOWN;
+    }
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                tpaRequests.remove(target.getUniqueId());
+    public long getRemainCooldown(Player player) {
+        return (COOLDOWN - (System.currentTimeMillis() - cooldowns.get(player.getUniqueId()))) / 1000;
+    }
+
+    public void sendRequest(Player from, Player to) {
+        requests.put(from.getUniqueId(), to.getUniqueId());
+        cooldowns.put(from.getUniqueId(), System.currentTimeMillis());
+
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (requests.containsKey(from.getUniqueId())) {
+                requests.remove(from.getUniqueId());
+                from.sendMessage("§cTPA 요청이 만료되었습니다.");
             }
-        }.runTaskLater(NationWar.getInstance(), 1200L);
+        }, EXPIRE);
+
+        expireTasks.put(from.getUniqueId(), task);
     }
 
-    public static void acceptRequest(Player target) {
-        UUID senderUUID = tpaRequests.get(target.getUniqueId());
-        if (senderUUID == null) {
-            target.sendMessage("§c[!] 요청이 없습니다.");
-            return;
-        }
-        Player sender = Bukkit.getPlayer(senderUUID);
-        if (sender != null) sender.teleport(target.getLocation());
-        tpaRequests.remove(target.getUniqueId());
+    public void accept(Player to, Player from) {
+        requests.remove(from.getUniqueId());
+        cancelExpire(from);
+
+        from.teleport(to.getLocation());
+        from.sendMessage("§aTPA 요청이 수락되었습니다.");
+        to.sendMessage("§aTPA 요청을 수락하셨습니다.");
     }
 
-    public static void denyRequest(Player target) {
-        tpaRequests.remove(target.getUniqueId());
-        target.sendMessage("§c[!] 거절했습니다.");
+    public void deny(Player to, Player from) {
+        requests.remove(from.getUniqueId());
+        cancelExpire(from);
+
+        from.sendMessage("§cTPA 요청이 거절되었습니다.");
+        to.sendMessage("§eTPA 요청을 거절하셨습니다.");
+    }
+
+    public boolean hasRequest(Player from, Player to) {
+        return requests.containsKey(from.getUniqueId())
+                && requests.get(from.getUniqueId()).equals(to.getUniqueId());
+    }
+
+    private void cancelExpire(Player from) {
+        BukkitTask task = expireTasks.remove(from.getUniqueId());
+        if (task != null) task.cancel();
     }
 }

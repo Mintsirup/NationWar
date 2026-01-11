@@ -2,30 +2,49 @@ package com.nationwar.team;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import com.nationwar.NationWar;
-import java.io.*;
-import java.util.*;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 
 public class TeamGson {
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private static TeamDataContainer data = new TeamDataContainer();
-    public static Map<String, String> colors = new HashMap<>();
 
-    public static class TeamDataContainer {
-        public Map<String, List<String>> teams = new HashMap<>();
+    private final File file;
+    private final Gson gson;
+
+    public TeamGson(NationWar plugin) {
+        this.file = new File(plugin.getDataFolder(), "team.json");
+        this.gson = new GsonBuilder().setPrettyPrinting().create();
     }
 
-    public static void load() {
-        File file = new File(NationWar.getInstance().getDataFolder(), "team.json");
-        if (file.exists()) {
-            try (Reader r = new FileReader(file)) { data = gson.fromJson(r, TeamDataContainer.class); } catch (Exception e) {}
+    public JsonObject load() {
+        try {
+            if (!file.exists()) {
+                save(createDefault());
+            }
+            return gson.fromJson(new FileReader(file), JsonObject.class);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 
-    public static void save() {
-        File file = new File(NationWar.getInstance().getDataFolder(), "team.json");
-        try (Writer w = new FileWriter(file)) { gson.toJson(data, w); } catch (Exception e) {}
+    public void save(JsonObject object) {
+        try {
+            FileWriter writer = new FileWriter(file);
+            gson.toJson(object, writer);
+            writer.flush();
+            writer.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    public static Map<String, List<String>> getTeams() { return data.teams; }
+    private JsonObject createDefault() {
+        JsonObject root = new JsonObject();
+        root.add("teams", new JsonObject());
+        return root;
+    }
 }
