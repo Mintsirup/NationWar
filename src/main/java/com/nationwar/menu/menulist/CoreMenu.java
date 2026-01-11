@@ -1,19 +1,28 @@
 package com.nationwar.menu.menulist;
 
+import com.nationwar.core.CoreGson;
 import com.nationwar.menu.GUIManager;
+import com.nationwar.team.TeamMain;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
 public class CoreMenu {
-    public static Inventory getInventory() {
-        Inventory inv = Bukkit.createInventory(null, 27, "§0코어 메뉴");
-        GUIManager.fillGui(inv, 10, 11, 12, 14, 15, 16, 19);
-        for (int i = 1; i <= 6; i++) {
-            int slot = (i <= 3) ? 9 + i : 10 + i;
-            inv.setItem(slot, GUIManager.createItem(Material.END_CRYSTAL, "§d§l코어 #" + i, "§7상태: §f확인 중", "§7점령 국가: §f없음", "", "§e클릭 시 상세 정보"));
+    public static void open(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, "§8코어 메뉴");
+        String myTeam = TeamMain.getPlayerTeam(player);
+        int[] slots = {10, 11, 12, 14, 15, 16};
+
+        for (int i = 0; i < 6; i++) {
+            CoreGson.CoreData core = CoreGson.getCore(i);
+            boolean isMine = core.owner.equals(myTeam) && !myTeam.equals("방랑자");
+
+            Material mat = isMine ? Material.BEACON : Material.BARRIER;
+            String status = isMine ? "§a[점령 중]" : "§c[미점령]";
+            inv.setItem(slots[i], GUIManager.createItem(mat, "§l코어 " + i + " " + status,
+                    isMine ? "§7클릭 시 10초 후 이동합니다." : "§7소유한 팀만 이동 가능합니다."));
         }
-        inv.setItem(19, GUIManager.createItem(Material.ARROW, "§7뒤로 가기", "§7메인 메뉴로 이동합니다."));
-        return inv;
+        player.openInventory(inv);
     }
 }

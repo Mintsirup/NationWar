@@ -1,58 +1,71 @@
 package com.nationwar.listeners;
 
-import com.nationwar.core.CoreMain;
+import com.nationwar.core.CoreGson;
 import com.nationwar.team.TeamMain;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+
 import java.util.*;
 
 public class PlayerDistanceDetect implements Listener {
-    private final CoreMain coreMain;
-    private final TeamMain teamMain;
-    private final Set<UUID> warnedPlayers = new HashSet<>();
-
-    public PlayerDistanceDetect(CoreMain coreMain, TeamMain teamMain) {
-        this.coreMain = coreMain;
-        this.teamMain = teamMain;
-    }
+    private final HashMap<UUID, BossBar> activeBars = new HashMap<>();
+    private final HashMap<UUID, Set<Integer>> notifiedCores = new HashMap<>();
 
     @EventHandler
     public void onMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-        String playerTeam = teamMain.playerTeams.getOrDefault(player.getUniqueId(), "방랑자");
+        String playerTeam = TeamMain.getPlayerTeam(player);
+        Location pLoc = player.getLocation();
+        boolean inAnyCoreRange = false;
 
-        for (int i = 0; i < coreMain.coreLocations.size(); i++) {
-            Location coreLoc = coreMain.coreLocations.get(i);
-            if (!coreLoc.getWorld().equals(player.getWorld())) continue;
+        for (CoreGson.CoreData core : CoreGson.getCores()) {
+            if (core.x == 0 && core.y == 0) continue;
 
-            double distance = player.getLocation().distance(coreLoc);
-            if (distance <= 250) {
-                coreMain.bossBars.get(i).addPlayer(player);
-                String ownerTeam = coreMain.coreOwners.get(i);
+            Location cLoc = new Location(player.getWorld(), core.x, core.y, core.z);
+            if (pLoc.getWorld().equals(cLoc.getWorld()) && pLoc.distance(cLoc) <= 250) {
+                inAnyCoreRange = true;
 
-                if (!ownerTeam.equals("없음") && !ownerTeam.equals(playerTeam)) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 20, 0, false, false));
-                    String warnKey = player.getUniqueId() + "-" + i;
-                    if (!warnedPlayers.contains(player.getUniqueId())) {
-                        player.sendTitle("§c적 팀의 코어 주변에 접근했습니다!", "§f발광이 적용됩니다", 10, 40, 10);
-                        warnedPlayers.add(player.getUniqueId());
+                // 1. 보스바
+                BossBar bar = activeBars.computeIfAbsent(player.getUniqueId(), k -> Bukkit.createBossBar("", BarColor.GREEN, BarStyle.SOLID));
+                bar.setTitle("§e[코어 " + core.id + "] §f소유: §b" + core.owner + " §7| §cHP: " + (int)core.hp);
+                bar.setProgress(Math.max(0, Math.min(1.0, core.hp / 5000.0)));
+                bar.addPlayer(player);
 
-                        for (UUID memberId : teamMain.teamMembers.getOrDefault(ownerTeam, new ArrayList<>())) {
-                            Player member = Bukkit.getPlayer(memberId);
-                            if (member != null) member.sendMessage("당신의 코어에 " + playerTeam + "팀의 " + player.getName() + "이(가) 접근했습니다!");
+                // 2. 적 팀 코어 진입 시 (알림 + 발광)
+                if (!core.owner.equals("없음") && !core.owner.equals(playerTeam)) {
+                    Set<Integer> notifications = notifiedCores.computeIfAbsent(player.getUniqueId(), k -> new HashSet<>());
+                    if (!notifications.contains(core.id)) {
+                        player.sendTitle("§c적 팀의 코어 접근!", "§e발광이 적용됩니다", 10, 40, 10);
+
+                        // 소유 팀에게 알림
+                        for (Player p : Bukkit.getOnlinePlayers()) {
+                            if (TeamMain.getPlayerTeam(p).equals(core.owner)) {
+                                p.sendMessage("§6[!] §e코어에 " + playerTeam + "팀의 " + player.getName() + " 접근!");
+                            }
                         }
+                        notifications.add(core.id);
                     }
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 30, 0, false, false));
                 }
-            } else {
-                coreMain.bossBars.get(i).removePlayer(player);
-                warnedPlayers.remove(player.getUniqueId());
+                break;
             }
+        }
+
+        if (!inAnyCoreRange) {
+            if (activeBars.containsKey(player.getUniqueId())) {
+                activeBars.get(player.getUniqueId()).removePlayer(player);
+                activeBars.remove(player.getUniqueId());
+            }
+            notifiedCores.remove(player.getUniqueId());
         }
     }
 }

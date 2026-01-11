@@ -7,19 +7,18 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 
 public class PvpListener implements Listener {
-    private final TeamMain teamMain;
-
-    public PvpListener(TeamMain teamMain) {
-        this.teamMain = teamMain;
-    }
-
     @EventHandler
     public void onPvp(EntityDamageByEntityEvent event) {
-        if (event.getDamager() instanceof Player p1 && event.getEntity() instanceof Player p2) {
-            String team1 = teamMain.playerTeams.getOrDefault(p1.getUniqueId(), "방랑자");
-            String team2 = teamMain.playerTeams.getOrDefault(p2.getUniqueId(), "방랑자");
+        if (event.getDamager() instanceof Player && event.getEntity() instanceof Player) {
+            Player damager = (Player) event.getDamager();
+            Player victim = (Player) event.getEntity();
+
+            String team1 = TeamMain.getPlayerTeam(damager);
+            String team2 = TeamMain.getPlayerTeam(victim);
+
             if (!team1.equals("방랑자") && team1.equals(team2)) {
                 event.setCancelled(true);
+                damager.sendMessage("§c[!] 같은 팀원은 공격할 수 없습니다.");
             }
         }
     }

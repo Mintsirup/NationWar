@@ -1,76 +1,61 @@
 package com.nationwar.tpa;
 
 import com.nationwar.NationWar;
+import com.nationwar.team.TeamMain;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
-import java.util.*;
+import java.util.HashMap;
+import java.util.UUID;
 
 public class TpaMain {
-    private final Map<UUID, UUID> pendingRequests = new HashMap<>(); // 수락자 ID, 요청자 ID
-    private final Map<UUID, Long> cooldowns = new HashMap<>(); // 요청자 ID, 마지막 요청 시간
-    private final long COOLDOWN_TIME = 20 * 60 * 1000; // 20분
-    private final long EXPIRATION_TIME = 60 * 1000; // 1분
+    public static final HashMap<UUID, UUID> tpaRequests = new HashMap<>();
 
-    public void sendRequest(Player from, Player to) {
-        UUID fromId = from.getUniqueId();
-        UUID toId = to.getUniqueId();
+    public static void sendRequest(Player sender, Player target) {
+        String senderTeam = TeamMain.getPlayerTeam(sender);
+        String targetTeam = TeamMain.getPlayerTeam(target);
 
-        // 쿨타임 체크
-        if (cooldowns.containsKey(fromId)) {
-            long remaining = (cooldowns.get(fromId) + COOLDOWN_TIME) - System.currentTimeMillis();
-            if (remaining > 0) {
-                from.sendMessage("§c쿨타임이 " + (remaining / 1000 / 60) + "분 " + (remaining / 1000 % 60) + "초 남았습니다.");
-                return;
-            }
+        if (senderTeam.equals("방랑자") || !senderTeam.equals(targetTeam)) {
+            sender.sendMessage("§c[!] TPA는 같은 팀원에게만 가능합니다.");
+            return;
         }
 
-        pendingRequests.put(toId, fromId);
-        cooldowns.put(fromId, System.currentTimeMillis());
+        tpaRequests.put(target.getUniqueId(), sender.getUniqueId());
 
-        to.sendMessage("§f" + from.getName() + "이(가) 당신에게 tpa요청을 보냈습니다. 이 요청은 1분 후에 만료됩니다.");
-        to.sendMessage("§a[수락(수락 누를 시 명령 실행한 플레이어를 수락을 누른 플레이어에게 tp됨)]");
-        to.sendMessage("§c[거절(거절을 누를 시 명령을 실행한 플레이어에게 \"tpa요청이 거절되었습니다\"전송)]");
+        TextComponent msg = new TextComponent("§e[!] " + sender.getName() + "님의 TPA 요청: ");
+        TextComponent accept = new TextComponent("§a§l[수락] ");
+        accept.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpa 수락"));
+        TextComponent deny = new TextComponent("§c§l[거절]");
+        deny.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpa 거절"));
 
-        // 1분 후 만료 처리
+        msg.addExtra(accept);
+        msg.addExtra(deny);
+        target.spigot().sendMessage(msg);
+        sender.sendMessage("§a[!] 요청을 보냈습니다.");
+
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (pendingRequests.containsKey(toId) && pendingRequests.get(toId).equals(fromId)) {
-                    pendingRequests.remove(toId);
-                }
+                tpaRequests.remove(target.getUniqueId());
             }
-        }.runTaskLater(NationWar.getInstance(), 1200L); // 20틱 * 60초
+        }.runTaskLater(NationWar.getInstance(), 1200L);
     }
 
-    public void acceptRequest(Player to) {
-        UUID toId = to.getUniqueId();
-        if (!pendingRequests.containsKey(toId)) {
-            to.sendMessage("§c진행 중인 tpa 요청이 없습니다.");
+    public static void acceptRequest(Player target) {
+        UUID senderUUID = tpaRequests.get(target.getUniqueId());
+        if (senderUUID == null) {
+            target.sendMessage("§c[!] 요청이 없습니다.");
             return;
         }
-
-        Player from = Bukkit.getPlayer(pendingRequests.get(toId));
-        if (from != null && from.isOnline()) {
-            from.teleport(to.getLocation());
-            from.sendMessage("§a" + to.getName() + "님에게 이동되었습니다.");
-            to.sendMessage("§a요청을 수락했습니다.");
-        }
-        pendingRequests.remove(toId);
+        Player sender = Bukkit.getPlayer(senderUUID);
+        if (sender != null) sender.teleport(target.getLocation());
+        tpaRequests.remove(target.getUniqueId());
     }
 
-    public void denyRequest(Player to) {
-        UUID toId = to.getUniqueId();
-        if (!pendingRequests.containsKey(toId)) {
-            to.sendMessage("§c진행 중인 tpa 요청이 없습니다.");
-            return;
-        }
-
-        Player from = Bukkit.getPlayer(pendingRequests.get(toId));
-        if (from != null && from.isOnline()) {
-            from.sendMessage("tpa요청이 거절되었습니다");
-        }
-        to.sendMessage("§c요청을 거절했습니다.");
-        pendingRequests.remove(toId);
+    public static void denyRequest(Player target) {
+        tpaRequests.remove(target.getUniqueId());
+        target.sendMessage("§c[!] 거절했습니다.");
     }
 }

@@ -4,25 +4,49 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.nationwar.NationWar;
 import java.io.*;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CoreGson {
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private final File file = new File(NationWar.getInstance().getDataFolder(), "cores.json");
+    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static File file;
+    private static CoreContainer container = new CoreContainer();
 
-    public void save(Map<String, Object> data) {
-        if (!NationWar.getInstance().getDataFolder().exists()) NationWar.getInstance().getDataFolder().mkdirs();
-        try (Writer writer = new FileWriter(file)) {
-            gson.toJson(data, writer);
-        } catch (IOException ignored) {}
+    public static class CoreContainer {
+        public List<CoreData> cores = new ArrayList<>();
     }
 
-    public Map<String, Object> load() {
-        if (!file.exists()) return null;
-        try (Reader reader = new FileReader(file)) {
-            return gson.fromJson(reader, Map.class);
-        } catch (IOException ignored) {
-            return null;
+    public static class CoreData {
+        public int id;
+        public double x, y, z;
+        public double hp = 5000;
+        public String owner = "없음";
+    }
+
+    public static void loadCores() {
+        file = new File(NationWar.getInstance().getDataFolder(), "core.json");
+        if (file.exists()) {
+            try (Reader reader = new FileReader(file)) {
+                container = gson.fromJson(reader, CoreContainer.class);
+            } catch (IOException e) { e.printStackTrace(); }
         }
+    }
+
+    public static void saveCores() {
+        try (Writer writer = new FileWriter(file)) {
+            gson.toJson(container, writer);
+        } catch (IOException e) { e.printStackTrace(); }
+    }
+
+    public static List<CoreData> getCores() {
+        return container.cores;
+    }
+
+    // 에러 해결: int ID를 받아 CoreData를 반환하는 올바른 메서드
+    public static CoreData getCore(int id) {
+        for (CoreData core : container.cores) {
+            if (core.id == id) return core;
+        }
+        return null;
     }
 }

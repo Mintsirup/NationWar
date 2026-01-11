@@ -8,12 +8,14 @@ import org.bukkit.event.entity.SlimeSplitEvent;
 
 public class SlimeSpawnListener implements Listener {
     @EventHandler
-    public void onSpawn(CreatureSpawnEvent event) {
-        if (event.getEntity() instanceof Slime) event.setCancelled(true);
+    public void onSlimeSpawn(CreatureSpawnEvent event) {
+        if (event.getEntity() instanceof Slime && event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.NATURAL) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler
-    public void onSplit(SlimeSplitEvent event) {
+    public void onSlimeSplit(SlimeSplitEvent event) {
         event.setCancelled(true);
     }
 }

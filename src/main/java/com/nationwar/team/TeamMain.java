@@ -1,52 +1,68 @@
 package com.nationwar.team;
 
-import com.nationwar.NationWar;
-import org.bukkit.inventory.Inventory;
-import java.util.*;
-import java.util.stream.Collectors;
+import com.nationwar.core.CoreGson;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.entity.Player;
+import java.util.UUID;
 
 public class TeamMain {
-    public Map<UUID, String> playerTeams = new HashMap<>();
-    public Map<String, UUID> teamLeaders = new HashMap<>();
-    public Map<String, List<UUID>> teamMembers = new HashMap<>();
-    public Map<String, String> teamColors = new HashMap<>();
-    public Map<String, Inventory> teamChests = new HashMap<>();
-    private final TeamGson teamGson = new TeamGson();
 
-    public void createTeam(String teamName, UUID leaderId) {
-        if (hasTeam(leaderId)) return;
-
-        playerTeams.put(leaderId, teamName);
-        teamLeaders.put(teamName, leaderId);
-
-        List<UUID> members = new ArrayList<>();
-        members.add(leaderId);
-        teamMembers.put(teamName, members);
-        teamColors.put(teamName, "§f");
-
-        if (!teamChests.containsKey(teamName)) {
-            teamChests.put(teamName, TeamChest.createChest(teamName));
+    public static void createTeam(Player owner, String teamName) {
+        String lowerName = teamName.toLowerCase();
+        if (lowerName.equals("null") || lowerName.equals("없음") || lowerName.equals("방랑자")) {
+            owner.sendMessage("§c[!] 해당 이름은 팀 이름으로 사용할 수 없습니다.");
+            return;
+        }
+        if (TeamGson.getTeams().containsKey(teamName)) {
+            owner.sendMessage("§c[!] 이미 존재하는 팀 이름입니다.");
+            return;
+        }
+        if (!getPlayerTeam(owner).equals("방랑자")) {
+            owner.sendMessage("§c[!] 이미 소속된 팀이 있습니다.");
+            return;
         }
 
-        saveTeams(); // 데이터 변경 시 저장
+        TeamGson.TeamData data = new TeamGson.TeamData();
+        data.owner = owner.getUniqueId();
+        data.members.add(owner.getUniqueId());
+
+        TeamGson.getTeams().put(teamName, data);
+        TeamGson.saveTeams();
+        owner.sendMessage("§a[!] " + teamName + " 팀이 생성되었습니다.");
     }
 
-    public void saveTeams() {
-        Map<String, Object> data = new HashMap<>();
-        Map<String, List<String>> serializeMembers = new HashMap<>();
+    public static void deleteTeam(String teamName) {
+        if (!TeamGson.getTeams().containsKey(teamName)) return;
 
-        // 팀별 UUID 리스트를 문자열 리스트로 변환
-        for (Map.Entry<String, List<UUID>> entry : teamMembers.entrySet()) {
-            serializeMembers.put(entry.getKey(), entry.getValue().stream()
-                    .map(UUID::toString)
-                    .collect(Collectors.toList()));
+        TeamGson.getTeams().remove(teamName);
+        TeamGson.saveTeams();
+
+        for (CoreGson.CoreData core : CoreGson.getCores()) {
+            if (core.owner.equals(teamName)) {
+                core.owner = "없음";
+                core.hp = 5000;
+            }
         }
-
-        data.put("teams", serializeMembers);
-        teamGson.save(data);
+        CoreGson.saveCores();
+        Bukkit.broadcastMessage("§6[!] §e" + teamName + " 팀이 해체되었습니다.");
     }
 
-    public boolean hasTeam(UUID uuid) {
-        return playerTeams.containsKey(uuid) && !playerTeams.get(uuid).equals("방랑자");
+    public static boolean isLeader(Player player) {
+        String teamName = getPlayerTeam(player);
+        if (teamName.equals("방랑자")) return false;
+        TeamGson.TeamData data = TeamGson.getTeams().get(teamName);
+        return data != null && data.owner.equals(player.getUniqueId());
+    }
+
+    public static void setTeamColor(String teamName, ChatColor color) {
+        if (TeamGson.getTeams().containsKey(teamName)) {
+            TeamGson.getTeams().get(teamName).color = color.name();
+            TeamGson.saveTeams();
+        }
+    }
+
+    public static String getPlayerTeam(Player player) {
+        return TeamGson.getPlayerTeam(player.getUniqueId());
     }
 }

@@ -2,59 +2,69 @@ package com.nationwar.core;
 
 import com.nationwar.NationWar;
 import org.bukkit.*;
-import org.bukkit.boss.BossBar;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Ghast;
-import java.util.*;
+import org.bukkit.persistence.PersistentDataType;
+import java.util.List;
 
 public class CoreMain {
-    public List<Location> coreLocations = new ArrayList<>();
-    public Map<Integer, Double> coreHealth = new HashMap<>();
-    public Map<Integer, String> coreOwners = new HashMap<>();
-    public Map<Integer, BossBar> bossBars = new HashMap<>();
-    public Map<Integer, Ghast> coreEntities = new HashMap<>();
-    private final CoreGson coreGson = new CoreGson();
 
-    public void spawnCores() {
-        World world = Bukkit.getWorlds().get(0);
-        Random random = new Random();
-        for (int i = 0; i < 6; i++) {
-            // ... (기존 스폰 로직 동일)
-            int x = random.nextInt(15001) - 7500;
-            int z = random.nextInt(15001) - 7500;
-            int y = world.getHighestBlockYAt(x, z);
-            Location loc = new Location(world, x, y, z);
+    // 코어 물리 구조 생성 (4x4 화이트 콘크리트)
+    public static void buildCorePhysical(Location loc, int coreId) {
+        World world = loc.getWorld();
+        if (world == null) return;
 
-            coreLocations.add(loc);
-            coreHealth.put(i, 5000.0);
-            coreOwners.put(i, "없음");
+        int cx = loc.getBlockX();
+        int cy = loc.getBlockY();
+        int cz = loc.getBlockZ();
 
-            // 코어 설치 및 엔티티 생성 로직 생략 (기존과 동일)
+        for (int x = 0; x < 4; x++) {
+            for (int z = 0; z < 4; z++) {
+                Block block = world.getBlockAt(cx + x, cy, cz + z);
+                block.setType(Material.WHITE_CONCRETE);
+            }
         }
-        saveCores(); // 생성 후 저장
+        // 가스트는 4x4의 중앙(시작점+1.5) 지면에서 1칸 위에 소환
+        spawnCoreGhast(new Location(world, cx + 1.5, cy + 1, cz + 1.5), coreId);
     }
 
-    public void saveCores() {
-        Map<String, Object> data = new HashMap<>();
-        List<Map<String, Object>> coreList = new ArrayList<>();
+    // 가스트 소환 및 고유 ID 부여
+    public static void spawnCoreGhast(Location loc, int coreId) {
+        Ghast ghast = loc.getWorld().spawn(loc, Ghast.class);
+        ghast.setAI(false);
+        ghast.setSilent(true);
+        ghast.setGravity(false);
+        ghast.setRemoveWhenFarAway(false); // 멀어져도 디스폰 방지 핵심!
 
-        for (int i = 0; i < coreLocations.size(); i++) {
-            Map<String, Object> coreInfo = new HashMap<>();
-            Location loc = coreLocations.get(i);
-
-            coreInfo.put("id", i);
-            coreInfo.put("world", loc.getWorld().getName());
-            coreInfo.put("x", loc.getX());
-            coreInfo.put("y", loc.getY());
-            coreInfo.put("z", loc.getZ());
-            coreInfo.put("health", coreHealth.get(i));
-            coreInfo.put("owner", coreOwners.get(i));
-
-            coreList.add(coreInfo);
-        }
-
-        data.put("cores", coreList);
-        coreGson.save(data);
+        NamespacedKey key = new NamespacedKey(NationWar.getInstance(), "core_id");
+        ghast.getPersistentDataContainer().set(key, PersistentDataType.INTEGER, coreId);
+        ghast.setCustomName("§f코어 " + coreId);
     }
 
-    // 코어 데미지 처리 시에도 saveCores()를 호출하도록 CoreDamageListener 등에서 연동 필요
+    // 서버 재시작 후 코어 가스트 복구 로직
+    public static boolean reloadCoresFromConfig() {
+        try {
+            List<CoreGson.CoreData> cores = CoreGson.getCores();
+            World world = Bukkit.getWorlds().get(0);
+
+            // 기존에 남아있을 수 있는 코어 가스트 제거
+            world.getEntitiesByClass(Ghast.class).forEach(g -> {
+                NamespacedKey key = new NamespacedKey(NationWar.getInstance(), "core_id");
+                if (g.getPersistentDataContainer().has(key, PersistentDataType.INTEGER)) {
+                    g.remove();
+                }
+            });
+
+            // JSON 위치에 가스트 재소환
+            for (CoreGson.CoreData data : cores) {
+                if (data.x == 0 && data.y == 0 && data.z == 0) continue; // 설정 안 된 코어 스킵
+                Location spawnLoc = new Location(world, data.x + 1.5, data.y + 1, data.z + 1.5);
+                spawnCoreGhast(spawnLoc, data.id);
+            }
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
