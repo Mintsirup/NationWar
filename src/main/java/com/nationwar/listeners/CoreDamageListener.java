@@ -1,81 +1,87 @@
 package com.nationwar.listeners;
 
-import com.nationwar.NationWar;
 import com.nationwar.core.CoreGson;
+import com.nationwar.core.CoreMain;
 import com.nationwar.team.TeamMain;
 import org.bukkit.Bukkit;
-import org.bukkit.NamespacedKey;
+import org.bukkit.Color;
+import org.bukkit.FireworkEffect;
+import org.bukkit.entity.Firework;
 import org.bukkit.entity.Ghast;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.persistence.PersistentDataType;
-
-import java.time.DayOfWeek;
-import java.time.LocalDateTime;
+import org.bukkit.inventory.meta.FireworkMeta;
 
 public class CoreDamageListener implements Listener {
 
-    // 점령 가능 시간인지 확인 (월, 수, 금 19:00 ~ 19:59:59)
-    private boolean isCaptureTime() {
-        LocalDateTime now = LocalDateTime.now();
-        DayOfWeek day = now.getDayOfWeek();
-        int hour = now.getHour();
-
-        boolean isCorrectDay = (day == DayOfWeek.MONDAY || day == DayOfWeek.WEDNESDAY || day == DayOfWeek.FRIDAY);
-        boolean isCorrectHour = (hour == 19);
-
-        return isCorrectDay && isCorrectHour;
-    }
-
-    @EventHandler
-    public void onCoreExplosion(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Ghast)) return;
-
-        Ghast ghast = (Ghast) event.getEntity();
-        NamespacedKey key = new NamespacedKey(NationWar.getInstance(), "core_id");
-        if (!ghast.getPersistentDataContainer().has(key, PersistentDataType.INTEGER)) return;
-
-        // 폭발 피해(ENTITY_EXPLOSION, BLOCK_EXPLOSION) 차단
-        if (event.getCause() == EntityDamageEvent.DamageCause.ENTITY_EXPLOSION ||
-                event.getCause() == EntityDamageEvent.DamageCause.BLOCK_EXPLOSION) {
-            event.setCancelled(true);
-        }
-    }
-
     @EventHandler
     public void onCoreDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Ghast) || !(event.getDamager() instanceof Player)) return;
+        if (!(event.getEntity() instanceof Ghast)) return;
+        if (!(event.getDamager() instanceof Player)) return;
 
-        Player attacker = (Player) event.getDamager();
+        Player player = (Player) event.getDamager();
+        Ghast ghast = (Ghast) event.getEntity();
+        String teamName = TeamMain.getPlayerTeam(player);
 
-        // 1. 점령 시간 체크
-        if (!isCaptureTime()) {
-            attacker.sendMessage("§c[!] 지금은 코어 점령 시간이 아닙니다! (월/수/금 19:00~20:00)");
+        // 1. 점령 시간 확인 (월,수,금 19-20시)
+        if (!CoreMain.isCaptureTime()) {
+            player.sendMessage("§c[!] 지금은 코어 점령 시간이 아닙니다!");
             event.setCancelled(true);
             return;
         }
 
-        Ghast ghast = (Ghast) event.getEntity();
-        NamespacedKey key = new NamespacedKey(NationWar.getInstance(), "core_id");
-        if (!ghast.getPersistentDataContainer().has(key, PersistentDataType.INTEGER)) return;
+        // 2. 방랑자 확인
+        if (teamName.equals("방랑자")) {
+            player.sendMessage("§c[!] 방랑자는 코어를 점령할 수 없습니다.");
+            event.setCancelled(true);
+            return;
+        }
 
-        event.setCancelled(true);
-
-        int coreId = ghast.getPersistentDataContainer().get(key, PersistentDataType.INTEGER);
-        String attackerTeam = TeamMain.getPlayerTeam(attacker);
+        // 3. 데미지 계산 및 체력 차감
+        // 가스트의 이름을 통해 ID 추출 (예: "§6코어 0" -> "0")
+        String name = ghast.getCustomName();
+        if (name == null) return;
+        int coreId = Integer.parseInt(name.replaceAll("[^0-9]", ""));
         CoreGson.CoreData core = CoreGson.getCore(coreId);
 
-        if (attackerTeam.equals("방랑자") || attackerTeam.equals(core.owner)) return;
+        if (core != null) {
+            core.hp -= event.getFinalDamage();
 
-        core.hp -= event.getFinalDamage();
-        if (core.hp <= 0) {
-            core.hp = 5000;
-            core.owner = attackerTeam;
-            Bukkit.broadcastMessage("§6[!] §e코어 " + coreId + "번이 " + attackerTeam + " 팀에 점령되었습니다!");
+            // 4. 코어 파괴 (체력 0 이하)
+            if (core.hp <= 0) {
+                core.owner = teamName;
+                core.hp = 5000; // 체력 초기화
+                Bukkit.broadcastMessage("§6§l[!] §e" + teamName + "§f 팀이 §6코어 " + coreId + "§f를 점령했습니다!");
+
+                CoreGson.saveCores(); // 데이터 저장
+                checkWinner(); // 승리 조건 체크
+            }
         }
-        CoreGson.saveCores();
+    }
+
+    // 모든 코어를 한 팀이 먹었는지 확인
+    private void checkWinner() {
+        String firstOwner = CoreGson.getCores().get(0).owner;
+        if (firstOwner.equals("없음")) return;
+
+        for (CoreGson.CoreData core : CoreGson.getCores()) {
+            if (!core.owner.equals(firstOwner)) return; // 하나라도 주인이 다르면 종료
+        }
+
+        // 승리 처리
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendTitle("§6§l" + firstOwner + " 팀 승리!", "§f모든 코어를 점령하였습니다.", 10, 100, 20);
+            spawnFirework(p);
+        }
+    }
+
+    private void spawnFirework(Player p) {
+        Firework fw = p.getWorld().spawn(p.getLocation(), Firework.class);
+        FireworkMeta meta = fw.getFireworkMeta();
+        meta.addEffect(FireworkEffect.builder().withColor(Color.YELLOW).withFade(Color.YELLOW).with(FireworkEffect.Type.BALL_LARGE).build());
+        meta.setPower(1);
+        fw.setFireworkMeta(meta);
     }
 }

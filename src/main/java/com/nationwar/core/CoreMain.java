@@ -5,7 +5,11 @@ import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Ghast;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitRunnable;
+
+import java.util.Calendar;
 import java.util.List;
+import java.util.TimeZone;
 
 public class CoreMain {
 
@@ -66,5 +70,36 @@ public class CoreMain {
             e.printStackTrace();
             return false;
         }
+    }
+    public static void startTimeChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"));
+                int hour = cal.get(Calendar.HOUR_OF_DAY);
+                int minute = cal.get(Calendar.MINUTE);
+                int second = cal.get(Calendar.SECOND);
+
+                // 20시 0분 0초가 되었을 때 초기화
+                if (hour == 20 && minute == 0 && second == 0) {
+                    for (CoreGson.CoreData core : CoreGson.getCores()) {
+                        core.hp = 5000;
+                    }
+                    CoreGson.saveCores();
+                    Bukkit.broadcastMessage("§e[!] 점령 시간이 종료되어 모든 코어 체력이 초기화되었습니다.");
+                }
+            }
+        }.runTaskTimer(NationWar.getInstance(), 0L, 20L); // 1초마다 체크
+    }
+
+    public static boolean isCaptureTime() {
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"));
+        int day = cal.get(Calendar.DAY_OF_WEEK);
+        int hour = cal.get(Calendar.HOUR_OF_DAY);
+
+        boolean isCorrectDay = (day == Calendar.MONDAY || day == Calendar.WEDNESDAY || day == Calendar.FRIDAY);
+        boolean isCorrectHour = (hour == 19); // 19:00 ~ 19:59
+
+        return isCorrectDay && isCorrectHour;
     }
 }

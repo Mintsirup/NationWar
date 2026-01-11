@@ -1,21 +1,26 @@
 package com.nationwar.command;
 
-import com.nationwar.core.CoreMain;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
+import com.nationwar.core.CoreGson;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.command.*;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Ghast;
 
 public class GameContinueCommand implements CommandExecutor {
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.isOp()) return true;
-
-        boolean success = CoreMain.reloadCoresFromConfig();
-        if (success) {
-            sender.sendMessage("§a[!] core.json 데이터를 읽어 코어 가스트를 정상적으로 복구했습니다.");
-        } else {
-            sender.sendMessage("§c[!] 코어 데이터를 불러오는 중 오류가 발생했습니다. 콘솔을 확인하세요.");
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+        CoreGson.load();
+        boolean success = true;
+        for (CoreGson.CoreData data : CoreGson.getCores()) {
+            try {
+                Location loc = new Location(Bukkit.getWorlds().get(0), data.x, data.y, data.z);
+                Ghast g = (Ghast) loc.getWorld().spawnEntity(loc, EntityType.GHAST);
+                g.setAI(false);
+                g.setCustomName("코어 " + data.id);
+            } catch (Exception e) { success = false; }
         }
+        Bukkit.getConsoleSender().sendMessage(success ? "코어 생성 성공" : "코어 생성 실패");
         return true;
     }
 }
