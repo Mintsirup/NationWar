@@ -1,9 +1,7 @@
 package com.nationwar.team;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.nationwar.NationWar;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.*;
@@ -13,86 +11,106 @@ public class TeamMain {
     private final NationWar plugin;
     private final TeamGson teamGson;
 
-    // 팀 이름 → UUID 목록
-    private final Map<String, Set<UUID>> teams = new HashMap<>();
-    // 팀 이름 → 팀장
-    private final Map<String, UUID> leaders = new HashMap<>();
+    // 팀이름 -> UUID 문자열 리스트
+    private Map<String, List<String>> teams = new HashMap<>();
+
+    public static final String DEFAULT_TEAM = "방랑자";
 
     public TeamMain(NationWar plugin) {
         this.plugin = plugin;
         this.teamGson = new TeamGson(plugin);
-        load();
     }
 
-    public void load() {
-        teams.clear();
-        leaders.clear();
+    /* ===================== 로드 / 저장 ===================== */
 
-        JsonObject root = teamGson.load();
-        if (root == null) return;
+    public void loadTeams() {
+        teams = teamGson.load();
 
-        JsonObject teamsObj = root.getAsJsonObject("teams");
-        for (String teamName : teamsObj.keySet()) {
-            JsonArray array = teamsObj.getAsJsonArray(teamName);
+        // 방랑자 팀 없으면 생성
+        teams.putIfAbsent(DEFAULT_TEAM, new ArrayList<>());
 
-            Set<UUID> members = new HashSet<>();
-            for (JsonElement e : array) {
-                members.add(UUID.fromString(e.getAsString()));
-            }
-
-            teams.put(teamName, members);
-            leaders.put(teamName, members.iterator().next());
-        }
+        // 서버에 있는 플레이어 중 팀 없는 애들 방랑자로
+        Bukkit.getOnlinePlayers().forEach(this::setDefaultTeam);
     }
 
-    public void save() {
-        JsonObject root = new JsonObject();
-        JsonObject teamsObj = new JsonObject();
-
-        for (String team : teams.keySet()) {
-            JsonArray array = new JsonArray();
-            for (UUID uuid : teams.get(team)) {
-                array.add(uuid.toString());
-            }
-            teamsObj.add(team, array);
-        }
-
-        root.add("teams", teamsObj);
-        teamGson.save(root);
+    public void saveTeams() {
+        teamGson.save(teams);
     }
 
-    // =======================
-    // 팀 로직
-    // =======================
+    /* ===================== 기본 ===================== */
 
-    public boolean createTeam(Player player, String name) {
-        if (teams.containsKey(name)) return false;
+    public void setDefaultTeam(Player player) {
+        removeFromAllTeams(player);
+        teams.get(DEFAULT_TEAM).add(player.getUniqueId().toString());
+    }
 
-        Set<UUID> set = new HashSet<>();
-        set.add(player.getUniqueId());
-
-        teams.put(name, set);
-        leaders.put(name, player.getUniqueId());
-        save();
-        return true;
+    private void removeFromAllTeams(Player player) {
+        teams.values().forEach(list ->
+                list.remove(player.getUniqueId().toString())
+        );
     }
 
     public String getTeam(Player player) {
-        for (String team : teams.keySet()) {
-            if (teams.get(team).contains(player.getUniqueId())) {
-                return team;
+        String uuid = player.getUniqueId().toString();
+        for (Map.Entry<String, List<String>> entry : teams.entrySet()) {
+            if (entry.getValue().contains(uuid)) {
+                return entry.getKey();
             }
         }
-        return "방랑자";
-    }
-
-    public boolean isLeader(Player player) {
-        String team = getTeam(player);
-        if (team.equals("방랑자")) return false;
-        return leaders.get(team).equals(player.getUniqueId());
+        return DEFAULT_TEAM;
     }
 
     public boolean sameTeam(Player a, Player b) {
-        return getTeam(a).equals(getTeam(b)) && !getTeam(a).equals("방랑자");
+        return getTeam(a).equals(getTeam(b));
+    }
+
+    /* ===================== 팀 생성 / 삭제 ===================== */
+
+    public boolean createTeam(String name, Player leader) {
+        if (teams.containsKey(name)) return false;
+
+        teams.put(name, new ArrayList<>());
+        removeFromAllTeams(leader);
+        teams.get(name).add(leader.getUniqueId().toString());
+        saveTeams();
+        return true;
+    }
+
+    public void deleteTeam(String name) {
+        if (!teams.containsKey(name)) return;
+        if (name.equals(DEFAULT_TEAM)) return;
+
+        List<String> members = teams.get(name);
+        teams.remove(name);
+
+        // 팀원들 방랑자로
+        members.forEach(uuid ->
+                teams.get(DEFAULT_TEAM).add(uuid)
+        );
+        saveTeams();
+    }
+
+    /* ===================== 팀장 ===================== */
+
+    public boolean isLeader(Player player) {
+        String team = getTeam(player);
+        if (team.equals(DEFAULT_TEAM)) return false;
+
+        List<String> members = teams.get(team);
+        return members != null && !members.isEmpty()
+                && members.get(0).equals(player.getUniqueId().toString());
+    }
+
+    /* ===================== 초대 / 추가 ===================== */
+
+    public void addPlayerToTeam(Player player, String team) {
+        if (!teams.containsKey(team)) return;
+        removeFromAllTeams(player);
+        teams.get(team).add(player.getUniqueId().toString());
+        saveTeams();
+    }
+
+    public Map<String, List<String>> getTeams() {
+        return teams;
     }
 }

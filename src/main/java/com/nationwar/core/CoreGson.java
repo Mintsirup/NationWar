@@ -1,70 +1,58 @@
 package com.nationwar.core;
 
-import com.google.gson.*;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import com.nationwar.NationWar;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class CoreGson {
 
     private final File file;
+    private final Gson gson;
 
-    public CoreGson(File dataFolder) {
-        this.file = new File(dataFolder, "core.json");
+    public CoreGson(NationWar plugin) {
+        this.file = new File(plugin.getDataFolder(), "core.json");
+        this.gson = new GsonBuilder().setPrettyPrinting().create();
     }
 
-    public List<Location> loadCores() {
-        List<Location> cores = new ArrayList<>();
-
-        if (!file.exists()) {
-            saveCores(cores);
-            return cores;
-        }
-
-        try (FileReader reader = new FileReader(file)) {
-            JsonElement element = JsonParser.parseReader(reader);
-            if (!element.isJsonArray()) return cores;
-
-            JsonArray array = element.getAsJsonArray();
-            for (JsonElement e : array) {
-                JsonObject obj = e.getAsJsonObject();
-
-                String world = obj.get("world").getAsString();
-                double x = obj.get("x").getAsDouble();
-                double y = obj.get("y").getAsDouble();
-                double z = obj.get("z").getAsDouble();
-
-                cores.add(new Location(
-                        Bukkit.getWorld(world),
-                        x, y, z
-                ));
+    public List<CoreData> load() {
+        try {
+            if (!file.exists()) {
+                return new ArrayList<>();
             }
+            FileReader reader = new FileReader(file);
+            Type type = new TypeToken<Map<String, List<CoreData>>>(){}.getType();
+            Map<String, List<CoreData>> data = gson.fromJson(reader, type);
+            reader.close();
+
+            if (data == null || !data.containsKey("cores")) {
+                return new ArrayList<>();
+            }
+            return data.get("cores");
         } catch (Exception e) {
             e.printStackTrace();
+            return new ArrayList<>();
         }
-
-        return cores;
     }
 
-    public void saveCores(List<Location> cores) {
-        JsonArray array = new JsonArray();
+    public void save(List<CoreData> cores) {
+        try {
+            Map<String, Object> wrapper = new HashMap<>();
+            wrapper.put("cores", cores);
 
-        for (Location loc : cores) {
-            JsonObject obj = new JsonObject();
-            obj.addProperty("world", loc.getWorld().getName());
-            obj.addProperty("x", loc.getX());
-            obj.addProperty("y", loc.getY());
-            obj.addProperty("z", loc.getZ());
-            array.add(obj);
-        }
-
-        try (FileWriter writer = new FileWriter(file)) {
-            new GsonBuilder().setPrettyPrinting().create().toJson(array, writer);
+            FileWriter writer = new FileWriter(file);
+            gson.toJson(wrapper, writer);
+            writer.flush();
+            writer.close();
         } catch (Exception e) {
             e.printStackTrace();
         }

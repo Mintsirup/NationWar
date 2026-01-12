@@ -2,104 +2,143 @@ package com.nationwar.core;
 
 import com.nationwar.NationWar;
 import org.bukkit.*;
-import org.bukkit.block.Block;
+import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Ghast;
+import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.Calendar;
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.TimeZone;
+import java.util.Random;
 
 public class CoreMain {
 
-    // 코어 물리 구조 생성 (4x4 화이트 콘크리트)
-    public static void buildCorePhysical(Location loc, int coreId) {
-        World world = loc.getWorld();
-        if (world == null) return;
+    private final NationWar plugin;
+    private final CoreGson coreGson;
 
-        int cx = loc.getBlockX();
-        int cy = loc.getBlockY();
-        int cz = loc.getBlockZ();
+    private final List<CoreData> cores = new ArrayList<>();
+    private final NamespacedKey CORE_ID_KEY;
 
-        for (int x = 0; x < 4; x++) {
-            for (int z = 0; z < 4; z++) {
-                Block block = world.getBlockAt(cx + x, cy, cz + z);
-                block.setType(Material.WHITE_CONCRETE);
-            }
-        }
-        // 가스트는 4x4의 중앙(시작점+1.5) 지면에서 1칸 위에 소환
-        spawnCoreGhast(new Location(world, cx + 1.5, cy + 1, cz + 1.5), coreId);
+    public CoreMain(NationWar plugin) {
+        this.plugin = plugin;
+        this.coreGson = new CoreGson(plugin);
+        this.CORE_ID_KEY = new NamespacedKey(plugin, "core_id");
     }
 
-    // 가스트 소환 및 고유 ID 부여
-    public static void spawnCoreGhast(Location loc, int coreId) {
-        Ghast ghast = loc.getWorld().spawn(loc, Ghast.class);
-        ghast.setAI(false);
+    /* ===================== 로드 / 저장 ===================== */
+
+    public void loadCores() {
+        cores.clear();
+        cores.addAll(coreGson.load());
+    }
+
+    public void saveCores() {
+        coreGson.save(cores);
+    }
+
+    /* ===================== 게임 시작 시 코어 생성 ===================== */
+
+    public void generateCores(World world) {
+        cores.clear();
+
+        for (int i = 0; i < 6; i++) {
+            Location loc = getRandomGround(world);
+            buildCorePlate(loc);
+            spawnCoreGhast(loc, i);
+
+            cores.add(new CoreData(i,
+                    loc.getBlockX(),
+                    loc.getBlockY() + 1,
+                    loc.getBlockZ()));
+        }
+
+        saveCores();
+    }
+
+    /* ===================== 구조물 ===================== */
+
+    public void buildCorePlate(Location center) {
+        Location base = center.clone();
+
+        for (int x = -1; x <= 2; x++) {
+            for (int z = -1; z <= 2; z++) {
+                base.clone().add(x, 0, z)
+                        .getBlock()
+                        .setType(Material.WHITE_CONCRETE);
+            }
+        }
+    }
+
+    public void spawnCoreGhast(Location loc, int coreId) {
+        Ghast ghast = loc.getWorld().spawn(loc.clone().add(0.5, 1, 0.5), Ghast.class);
         ghast.setSilent(true);
-        ghast.setGravity(false);
-        ghast.setRemoveWhenFarAway(false); // 멀어져도 디스폰 방지 핵심!
+        ghast.setAI(false);
+        ghast.setInvulnerable(false);
+        ghast.setCustomName("§c코어 " + coreId);
+        ghast.setCustomNameVisible(true);
 
-        NamespacedKey key = new NamespacedKey(NationWar.getInstance(), "core_id");
-        ghast.getPersistentDataContainer().set(key, PersistentDataType.INTEGER, coreId);
-        ghast.setCustomName("§f코어 " + coreId);
+        ghast.getPersistentDataContainer()
+                .set(CORE_ID_KEY, PersistentDataType.INTEGER, coreId);
     }
 
-    // 서버 재시작 후 코어 가스트 복구 로직
-    public static boolean reloadCoresFromConfig() {
-        try {
-            List<CoreGson.CoreData> cores = CoreGson.getCores();
-            World world = Bukkit.getWorlds().get(0);
+    /* ===================== 불러오기 (/gamecontinue) ===================== */
 
-            // 기존에 남아있을 수 있는 코어 가스트 제거
-            world.getEntitiesByClass(Ghast.class).forEach(g -> {
-                NamespacedKey key = new NamespacedKey(NationWar.getInstance(), "core_id");
-                if (g.getPersistentDataContainer().has(key, PersistentDataType.INTEGER)) {
-                    g.remove();
-                }
-            });
+    public boolean reloadCoreFromConfig(World world) {
+        if (cores.isEmpty()) return false;
 
-            // JSON 위치에 가스트 재소환
-            for (CoreGson.CoreData data : cores) {
-                if (data.x == 0 && data.y == 0 && data.z == 0) continue; // 설정 안 된 코어 스킵
-                Location spawnLoc = new Location(world, data.x + 1.5, data.y + 1, data.z + 1.5);
-                spawnCoreGhast(spawnLoc, data.id);
-            }
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+        for (CoreData data : cores) {
+            Location loc = new Location(world, data.x, data.y - 1, data.z);
+            buildCorePlate(loc);
+            spawnCoreGhast(loc, data.id);
         }
-    }
-    public static void startTimeChecker() {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"));
-                int hour = cal.get(Calendar.HOUR_OF_DAY);
-                int minute = cal.get(Calendar.MINUTE);
-                int second = cal.get(Calendar.SECOND);
-
-                // 20시 0분 0초가 되었을 때 초기화
-                if (hour == 20 && minute == 0 && second == 0) {
-                    for (CoreGson.CoreData core : CoreGson.getCores()) {
-                        core.hp = 5000;
-                    }
-                    CoreGson.saveCores();
-                    Bukkit.broadcastMessage("§e[!] 점령 시간이 종료되어 모든 코어 체력이 초기화되었습니다.");
-                }
-            }
-        }.runTaskTimer(NationWar.getInstance(), 0L, 20L); // 1초마다 체크
+        return true;
     }
 
-    public static boolean isCaptureTime() {
-        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"));
-        int day = cal.get(Calendar.DAY_OF_WEEK);
-        int hour = cal.get(Calendar.HOUR_OF_DAY);
+    /* ===================== 점령 시간 ===================== */
 
-        boolean isCorrectDay = (day == Calendar.MONDAY || day == Calendar.WEDNESDAY || day == Calendar.FRIDAY);
-        boolean isCorrectHour = (hour == 19); // 19:00 ~ 19:59
+    public boolean isCaptureTime() {
+        LocalDateTime now = LocalDateTime.now();
+        DayOfWeek day = now.getDayOfWeek();
+        int hour = now.getHour();
 
-        return isCorrectDay && isCorrectHour;
+        boolean validDay = (day == DayOfWeek.MONDAY
+                || day == DayOfWeek.WEDNESDAY
+                || day == DayOfWeek.FRIDAY);
+
+        return validDay && hour >= 19 && hour < 20;
+    }
+
+    boolean isCore(EnderCrystal core) {
+        return false;
+    }
+
+    String getCoreTeam(EnderCrystal core) {
+        return null;
+    }
+
+    void damageCore(EnderCrystal core, double damage, Player attacker) {
+
+    }
+
+
+    /* ===================== 유틸 ===================== */
+
+    private Location getRandomGround(World world) {
+        Random r = new Random();
+        int x = r.nextInt(15000) - 7500;
+        int z = r.nextInt(15000) - 7500;
+
+        int y = world.getHighestBlockYAt(x, z);
+        return new Location(world, x, y, z);
+    }
+
+    public List<CoreData> getCores() {
+        return cores;
+    }
+
+    public NamespacedKey getCoreIdKey() {
+        return CORE_ID_KEY;
     }
 }

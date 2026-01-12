@@ -1,10 +1,10 @@
 package com.nationwar.listeners;
 
-import com.google.gson.JsonObject;
 import com.nationwar.NationWar;
 import com.nationwar.core.CoreMain;
+import com.nationwar.team.TeamMain;
+import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Ghast;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -12,54 +12,64 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 
 public class CoreDamageListener implements Listener {
 
-    private final NationWar plugin;
     private final CoreMain coreMain;
+    private final TeamMain teamMain;
 
-    public CoreDamageListener(NationWar plugin, CoreMain coreMain) {
-        this.plugin = plugin;
-        this.coreMain = coreMain;
+    public CoreDamageListener(NationWar plugin) {
+        this.coreMain = plugin.getCoreMain();
+        this.teamMain = plugin.getTeamMain();
     }
 
     @EventHandler
-    public void onDamage(EntityDamageByEntityEvent event) {
+    public void onCoreDamage(EntityDamageByEntityEvent event) {
 
         Entity entity = event.getEntity();
-        if (!(entity instanceof Ghast)) return;
-        if (!(event.getDamager() instanceof Player)) return;
 
-        Player damager = (Player) event.getDamager();
-        Ghast ghast = (Ghast) entity;
+        // 코어가 아니면 패스
+        if (!(entity instanceof EnderCrystal core)) return;
 
-        JsonObject core = getCoreByLocation(ghast);
-        if (core == null) return;
+        // 공격자 확인 (근접 + 원거리)
+        Player attacker = null;
 
-        double hp = core.get("hp").getAsDouble();
-        double damage = event.getFinalDamage();
-
-        hp -= damage;
-        if (hp < 0) hp = 0;
-
-        core.addProperty("hp", hp);
-        coreMain.saveCores();
-
-        // 가스트 실제 체력은 의미 없음 → 즉시 회복
-        ghast.setHealth(ghast.getMaxHealth());
-
-        event.setCancelled(true);
-    }
-
-    private JsonObject getCoreByLocation(Ghast ghast) {
-        for (JsonObject core : coreMain.getCores().values()) {
-            int x = core.get("x").getAsInt();
-            int y = core.get("y").getAsInt();
-            int z = core.get("z").getAsInt();
-
-            if (ghast.getLocation().getBlockX() == x
-                    && ghast.getLocation().getBlockY() == y + 1
-                    && ghast.getLocation().getBlockZ() == z) {
-                return core;
-            }
+        if (event.getDamager() instanceof Player p) {
+            attacker = p;
+        } else if (event.getDamager() instanceof org.bukkit.entity.Projectile proj
+                && proj.getShooter() instanceof Player p) {
+            attacker = p;
         }
-        return null;
+
+        if (attacker == null) {
+            event.setCancelled(true);
+            return;
+        }
+
+        // 팀 없는 플레이어 차단
+        if (!teamMain.hasTeam(attacker)) {
+            attacker.sendMessage("§c팀에 소속되어야 코어를 공격할 수 있습니다.");
+            event.setCancelled(true);
+            return;
+        }
+
+        // 코어 정보 불러오기
+        if (!coreMain.isCore(core)) {
+            event.setCancelled(true);
+            return;
+        }
+
+        String coreTeam = coreMain.getCoreTeam(core);
+        String attackerTeam = teamMain.getTeam(attacker);
+
+        // 같은 팀 코어 공격 차단
+        if (coreTeam.equals(attackerTeam)) {
+            attacker.sendMessage("§c자기 팀 코어는 공격할 수 없습니다.");
+            event.setCancelled(true);
+            return;
+        }
+
+        // 기본 데미지 무효화 (우리가 체력 관리)
+        event.setCancelled(true);
+
+        double damage = event.getDamage();
+        coreMain.damageCore(core, damage, attacker);
     }
 }

@@ -1,28 +1,25 @@
 name: NationWar
-version: 1.0
+version: 1.0.0
 main: com.nationwar.NationWar
-api-version: 1.20
+api-version: 1.21
 author: Mintina_
 
 commands:
   메뉴:
-    description: "국가 전쟁 통합 메뉴를 엽니다."
-    aliases: [menu]
-  팀:
-    description: "팀을 생성하거나 팀 메뉴를 확인합니다."
-  tpa:
-    description: "같은 팀원에게 순간이동 요청을 보냅니다."
-  국가창고:
-    description: "우리 팀의 공용 창고를 엽니다."
-    aliases: [창고]
+    description: 국가전쟁 메뉴 열기
   gamestart:
-    description: "게임 시작 및 코어 생성"
+    description: 게임 시작
     permission: nationwar.admin
   gamecontinue:
-    description: "코어 데이터 복구"
+    description: 코어 불러오기
     permission: nationwar.admin
+  팀:
+    description: 팀 관련 명령어
+  tpa:
+    description: 팀원 TPA
+  국가창고:
+    description: 국가 공용 창고
 
 permissions:
   nationwar.admin:
-    description: "관리자 전용 명령어 권한"
     default: op
