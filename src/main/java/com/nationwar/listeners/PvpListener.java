@@ -1,50 +1,26 @@
 package com.nationwar.listeners;
 
 import com.nationwar.NationWar;
-import com.nationwar.team.TeamMain;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 
 public class PvpListener implements Listener {
+    private final NationWar plugin;
 
-    private final TeamMain teamMain;
-
-    public PvpListener(NationWar plugin) {
-        this.teamMain = plugin.getTeamMain();
-    }
+    public PvpListener(NationWar plugin) { this.plugin = plugin; }
 
     @EventHandler
     public void onPvp(EntityDamageByEntityEvent event) {
+        // 기준서: 같은 팀원끼리는 서로 데미지를 입힐 수 없다.
+        if (event.getEntity() instanceof Player && event.getDamager() instanceof Player) {
+            Player victim = (Player) event.getEntity();
+            Player attacker = (Player) event.getDamager();
 
-        Entity damager = event.getDamager();
-        Entity victim = event.getEntity();
-
-        if (!(victim instanceof Player damaged)) return;
-
-        Player attacker = null;
-
-        // 직접 공격
-        if (damager instanceof Player p) {
-            attacker = p;
-        }
-
-        // 화살 같은 투사체
-        if (damager instanceof org.bukkit.entity.Projectile proj
-                && proj.getShooter() instanceof Player p) {
-            attacker = p;
-        }
-
-        if (attacker == null) return;
-
-        // 같은 팀이면 차단
-        if (teamMain.sameTeam(attacker, damaged)) {
-            event.setCancelled(true);
-            event.setDamage(0);
-
-            attacker.sendMessage("§c같은 팀원은 공격할 수 없습니다.");
+            if (plugin.getTeamMain().sameTeam(victim, attacker)) {
+                event.setCancelled(true);
+            }
         }
     }
 }

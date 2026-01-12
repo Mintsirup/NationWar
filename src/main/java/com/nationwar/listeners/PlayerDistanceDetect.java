@@ -1,11 +1,9 @@
 package com.nationwar.listeners;
 
-import com.google.gson.JsonObject;
 import com.nationwar.NationWar;
-import com.nationwar.core.CoreMain;
+import com.nationwar.core.CoreGson;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
@@ -16,112 +14,66 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class PlayerDistanceDetect implements Listener {
-
     private final NationWar plugin;
-    private final CoreMain coreMain;
+    private final Map<UUID, BossBar> activeBars = new HashMap<>();
 
-    // 플레이어별 보스바
-    private final Map<UUID, BossBar> bossBars = new HashMap<>();
-
-    public PlayerDistanceDetect(NationWar plugin, CoreMain coreMain) {
-        this.plugin = plugin;
-        this.coreMain = coreMain;
-    }
+    public PlayerDistanceDetect(NationWar plugin) { this.plugin = plugin; }
 
     @EventHandler
     public void onMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
+        String playerTeam = plugin.getTeamMain().getPlayerTeam(player.getUniqueId());
+        CoreGson.CoreInfo nearestCore = null;
+        double minDistance = 251.0;
 
-        // 블록 이동 없으면 무시
-        if (event.getFrom().getBlockX() == event.getTo().getBlockX()
-                && event.getFrom().getBlockY() == event.getTo().getBlockY()
-                && event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
-            return;
-        }
-
-        boolean inAnyCore = false;
-
-        for (JsonObject core : coreMain.getCores().values()) {
-            Location coreLoc = getCoreLocation(player.getWorld(), core);
-            if (coreLoc == null) continue;
-
-            double distance = player.getLocation().distance(coreLoc);
-
-            if (distance <= 250) {
-                inAnyCore = true;
-                showBossBar(player, core);
-                handleIntruder(player, core);
-                break;
+        for (CoreGson.CoreInfo core : plugin.getCoreMain().getCoreData().cores) {
+            Location coreLoc = new Location(player.getWorld(), core.x, core.y, core.z);
+            double dist = player.getLocation().distance(coreLoc);
+            if (dist <= 250 && dist < minDistance) {
+                minDistance = dist;
+                nearestCore = core;
             }
         }
 
-        if (!inAnyCore) {
+        if (nearestCore != null) {
+            // 기준서: 범위 진입 시 상단에 보스바 표시
+            showBossBar(player, nearestCore);
+
+            // 기준서: 적군 코어 접근 시 타이틀 알림과 발광 효과 부여, 소유 팀원에게 경고 전송
+            if (!nearestCore.owner.equals("없음") && !nearestCore.owner.equals(playerTeam)) {
+                player.sendTitle("§c[!] 침입 알림", "§f적국 코어 중심부에 접근 중입니다.", 0, 20, 0);
+                player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 20, 0));
+
+                // 소유 팀원에게 경고
+                for (Player p : Bukkit.getOnlinePlayers()) {
+                    if (plugin.getTeamMain().getPlayerTeam(p.getUniqueId()).equals(nearestCore.owner)) {
+                        p.sendMessage("§e[경고] §f코어 " + nearestCore.id + "에 침입자가 발생했습니다!");
+                    }
+                }
+            }
+        } else {
+            // 기준서: 코어 반경(250 블럭)을 벗어나면 코어와 관련된 모든 것을 없앤다.
             removeBossBar(player);
         }
     }
 
-    private Location getCoreLocation(World world, JsonObject core) {
-        if (!core.has("x") || !core.has("y") || !core.has("z")) return null;
-
-        int x = core.get("x").getAsInt();
-        int y = core.get("y").getAsInt();
-        int z = core.get("z").getAsInt();
-
-        if (y <= 0) return null;
-
-        return new Location(world, x + 0.5, y + 1, z + 0.5);
-    }
-
-    private void showBossBar(Player player, JsonObject core) {
-        BossBar bar = bossBars.get(player.getUniqueId());
-
-        double hp = core.get("hp").getAsDouble();
-        int id = core.get("id").getAsInt();
-
+    private void showBossBar(Player p, CoreGson.CoreInfo core) {
+        BossBar bar = activeBars.get(p.getUniqueId());
+        String title = "코어 " + core.id + ": [" + (int)core.hp + "/5000]";
         if (bar == null) {
-            bar = Bukkit.createBossBar(
-                    "코어 " + id + " : [" + (int) hp + "/5000]",
-                    BarColor.RED,
-                    BarStyle.SOLID
-            );
-            bar.addPlayer(player);
-            bossBars.put(player.getUniqueId(), bar);
+            bar = Bukkit.createBossBar(title, BarColor.RED, BarStyle.SOLID);
+            bar.addPlayer(p);
+            activeBars.put(p.getUniqueId(), bar);
         }
-
-        bar.setTitle("코어 " + id + " : [" + (int) hp + "/5000]");
-        bar.setProgress(Math.max(0, Math.min(1, hp / 5000.0)));
+        bar.setTitle(title);
+        bar.setProgress(core.hp / 5000.0);
     }
 
-    private void removeBossBar(Player player) {
-        BossBar bar = bossBars.remove(player.getUniqueId());
-        if (bar != null) {
-            bar.removeAll();
-        }
-    }
-
-    private void handleIntruder(Player player, JsonObject core) {
-        String owner = core.get("owner").getAsString();
-
-        // 아직 팀 시스템 전 → owner가 없음이 아닐 때만 처리
-        if (owner.equals("없음")) return;
-
-        // 타이틀
-        player.sendTitle("§c적 코어 침입!", "§f경고: 적의 코어에 접근했습니다.", 5, 20, 5);
-
-        // 발광 1초
-        player.addPotionEffect(new PotionEffect(
-                PotionEffectType.GLOWING,
-                20,
-                0,
-                false,
-                false
-        ));
-
-        // 팀 알림은 팀 시스템 이후에 연결
+    private void removeBossBar(Player p) {
+        BossBar bar = activeBars.remove(p.getUniqueId());
+        if (bar != null) bar.removeAll();
     }
 }

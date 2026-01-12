@@ -1,144 +1,113 @@
 package com.nationwar.core;
 
 import com.nationwar.NationWar;
-import org.bukkit.*;
-import org.bukkit.entity.EnderCrystal;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Ghast;
-import org.bukkit.entity.Player;
-import org.bukkit.persistence.PersistentDataType;
-
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.scheduler.BukkitRunnable;
+import java.io.File;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
 public class CoreMain {
-
     private final NationWar plugin;
-    private final CoreGson coreGson;
-
-    private final List<CoreData> cores = new ArrayList<>();
-    private final NamespacedKey CORE_ID_KEY;
+    private final File coreFile;
+    private CoreGson.CoreData coreData;
 
     public CoreMain(NationWar plugin) {
         this.plugin = plugin;
-        this.coreGson = new CoreGson(plugin);
-        this.CORE_ID_KEY = new NamespacedKey(plugin, "core_id");
+        this.coreFile = new File(plugin.getDataFolder(), "core.json");
+        this.coreData = CoreGson.load(coreFile);
     }
 
-    /* ===================== 로드 / 저장 ===================== */
+    public CoreGson.CoreData getCoreData() { return coreData; }
 
-    public void loadCores() {
-        cores.clear();
-        cores.addAll(coreGson.load());
-    }
+    public boolean reloadCoreFromConfig() { // 추가됨
+        this.coreData = CoreGson.load(coreFile);
+        if (this.coreData == null || this.coreData.cores.isEmpty()) return false;
 
-    public void saveCores() {
-        coreGson.save(cores);
-    }
-
-    /* ===================== 게임 시작 시 코어 생성 ===================== */
-
-    public void generateCores(World world) {
-        cores.clear();
-
-        for (int i = 0; i < 6; i++) {
-            Location loc = getRandomGround(world);
+        for (CoreGson.CoreInfo info : coreData.cores) {
+            Location loc = new Location(Bukkit.getWorlds().get(0), info.x, info.y, info.z);
             buildCorePlate(loc);
-            spawnCoreGhast(loc, i);
-
-            cores.add(new CoreData(i,
-                    loc.getBlockX(),
-                    loc.getBlockY() + 1,
-                    loc.getBlockZ()));
-        }
-
-        saveCores();
-    }
-
-    /* ===================== 구조물 ===================== */
-
-    public void buildCorePlate(Location center) {
-        Location base = center.clone();
-
-        for (int x = -1; x <= 2; x++) {
-            for (int z = -1; z <= 2; z++) {
-                base.clone().add(x, 0, z)
-                        .getBlock()
-                        .setType(Material.WHITE_CONCRETE);
-            }
-        }
-    }
-
-    public void spawnCoreGhast(Location loc, int coreId) {
-        Ghast ghast = loc.getWorld().spawn(loc.clone().add(0.5, 1, 0.5), Ghast.class);
-        ghast.setSilent(true);
-        ghast.setAI(false);
-        ghast.setInvulnerable(false);
-        ghast.setCustomName("§c코어 " + coreId);
-        ghast.setCustomNameVisible(true);
-
-        ghast.getPersistentDataContainer()
-                .set(CORE_ID_KEY, PersistentDataType.INTEGER, coreId);
-    }
-
-    /* ===================== 불러오기 (/gamecontinue) ===================== */
-
-    public boolean reloadCoreFromConfig(World world) {
-        if (cores.isEmpty()) return false;
-
-        for (CoreData data : cores) {
-            Location loc = new Location(world, data.x, data.y - 1, data.z);
-            buildCorePlate(loc);
-            spawnCoreGhast(loc, data.id);
+            spawnCoreGhast(info.id, loc);
         }
         return true;
     }
 
-    /* ===================== 점령 시간 ===================== */
+    public void spawnCoreGhast(int id, Location loc) {
+        Ghast ghast = (Ghast) loc.getWorld().spawnEntity(loc.add(0.5, 1, 0.5), EntityType.GHAST);
+        ghast.setCustomName("§f코어 " + id);
+        ghast.setAI(false);
+        // 리스너에서 인식할 수 있도록 메타데이터 부여
+        ghast.setMetadata("core_id", new FixedMetadataValue(plugin, id));
+    }
+
+    public void checkVictory() { // private -> public 수정
+        // 승리 판정 로직
+    }
+
+    public void LoadCores() {
+        // 기준서: 15000x15000 내 무작위 위치 지면 생성
+        World world = Bukkit.getWorlds().get(0);
+        Random random = new Random();
+        coreData = new CoreGson.CoreData();
+
+        for (int i = 0; i < 6; i++) {
+            int x = random.nextInt(15001) - 7500;
+            int z = random.nextInt(15001) - 7500;
+            int y = world.getHighestBlockYAt(x, z);
+
+            CoreGson.CoreInfo info = new CoreGson.CoreInfo();
+            info.id = i;
+            info.x = x; info.y = y; info.z = z;
+            coreData.cores.add(info);
+
+            Location loc = new Location(world, x, y, z);
+            buildCorePlate(loc);
+            spawnCoreGhast(i, loc);
+        }
+        saveCores();
+    }
+
+    public void buildCorePlate(Location loc) {
+        // 기준서: 5x5 화이트 콘크리트
+        for (int x = -2; x <= 2; x++) {
+            for (int z = -2; z <= 2; z++) {
+                loc.clone().add(x, 0, z).getBlock().setType(Material.WHITE_CONCRETE);
+            }
+        }
+    }
+
+    public void startTimeChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                LocalDateTime now = LocalDateTime.now();
+                // 기준서: 20:00가 되면 모든 코어 체력 5000으로 자동 초기화
+                if (now.getHour() == 20 && now.getMinute() == 0 && now.getSecond() == 0) {
+                    for (CoreGson.CoreInfo core : coreData.cores) {
+                        core.hp = 5000.0;
+                    }
+                    saveCores();
+                    checkVictory(); // 승리 조건 체크
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
+    }
 
     public boolean isCaptureTime() {
+        // 기준서: 월, 수, 금 19:00 ~ 20:00
         LocalDateTime now = LocalDateTime.now();
         DayOfWeek day = now.getDayOfWeek();
-        int hour = now.getHour();
-
-        boolean validDay = (day == DayOfWeek.MONDAY
-                || day == DayOfWeek.WEDNESDAY
-                || day == DayOfWeek.FRIDAY);
-
-        return validDay && hour >= 19 && hour < 20;
+        boolean isDay = (day == DayOfWeek.MONDAY || day == DayOfWeek.WEDNESDAY || day == DayOfWeek.FRIDAY);
+        return isDay && (now.getHour() == 19);
     }
 
-    boolean isCore(EnderCrystal core) {
-        return false;
-    }
+    public void saveCores() { CoreGson.save(coreFile, coreData); }
 
-    String getCoreTeam(EnderCrystal core) {
-        return null;
-    }
-
-    void damageCore(EnderCrystal core, double damage, Player attacker) {
-
-    }
-
-
-    /* ===================== 유틸 ===================== */
-
-    private Location getRandomGround(World world) {
-        Random r = new Random();
-        int x = r.nextInt(15000) - 7500;
-        int z = r.nextInt(15000) - 7500;
-
-        int y = world.getHighestBlockYAt(x, z);
-        return new Location(world, x, y, z);
-    }
-
-    public List<CoreData> getCores() {
-        return cores;
-    }
-
-    public NamespacedKey getCoreIdKey() {
-        return CORE_ID_KEY;
-    }
 }

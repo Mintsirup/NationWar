@@ -1,7 +1,6 @@
 package com.nationwar.menu.menulist;
 
-import com.nationwar.menu.GUIManager;
-import com.nationwar.team.TeamMain;
+import com.nationwar.NationWar;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -9,64 +8,25 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-public class TeamMenu implements GUIMenu {
+public class TeamMenu {
+    private final NationWar plugin;
+    public TeamMenu(NationWar plugin) { this.plugin = plugin; }
 
-    private final Player player;
-    private final Inventory inventory;
+    public void open(Player p) {
+        Inventory inv = Bukkit.createInventory(null, 27, "팀 메뉴");
+        String team = plugin.getTeamMain().getPlayerTeam(p.getUniqueId());
 
-    public TeamMenu(Player player) {
-        this.player = player;
-        this.inventory = Bukkit.createInventory(this, 27, "팀 메뉴");
-
-        TeamMain teamMain = TeamMain.getInstance();
-        boolean isLeader = teamMain.isLeader(player);
-
-        if (isLeader) {
-            // 팀장 UI
-            inventory.setItem(10, createItem(Material.RED_DYE, "§c팀 색 설정"));
-            inventory.setItem(13, createItem(Material.PLAYER_HEAD, "§a팀원 초대"));
-            inventory.setItem(16, createItem(Material.IRON_SWORD, "§4팀 삭제"));
+        if (plugin.getTeamMain().isLeader(team, p)) {
+            inv.setItem(10, createItem(Material.CYAN_DYE, "§f팀 색 설정 메뉴"));
+            inv.setItem(13, createItem(Material.PLAYER_HEAD, "§f플레이어 리스트 메뉴"));
+            inv.setItem(16, createItem(Material.BARRIER, "§f팀 삭제 확인 메뉴"));
         } else {
-            // 팀원 UI
-            inventory.setItem(13, createItem(Material.CHEST, "§e국가 창고"));
+            inv.setItem(13, createItem(Material.ENDER_CHEST, "§f국가창고"));
         }
+        p.openInventory(inv);
     }
 
-    private ItemStack createItem(Material material, String name) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(name);
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    @Override
-    public Inventory getInventory() {
-        return inventory;
-    }
-
-    @Override
-    public Inventory getInventoryHolder() {
-        return inventory;
-    }
-
-    @Override
-    public void onClick(Player player, int slot) {
-        GUIManager gui = new GUIManager(Bukkit.getPluginManager().getPlugin("NationWar"));
-        TeamMain teamMain = TeamMain.getInstance();
-
-        if (teamMain.isLeader(player)) {
-            if (slot == 10) {
-                gui.openTeamColorMenu(player);
-            } else if (slot == 13) {
-                gui.openTeamInviteListMenu(player);
-            } else if (slot == 16) {
-                gui.openTeamDeleteConfirmMenu(player);
-            }
-        } else {
-            if (slot == 13) {
-                teamMain.openTeamChest(player);
-            }
-        }
+    private ItemStack createItem(Material m, String n) {
+        ItemStack s = new ItemStack(m); ItemMeta mt = s.getItemMeta(); mt.setDisplayName(n); s.setItemMeta(mt); return s;
     }
 }

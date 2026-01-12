@@ -1,116 +1,60 @@
 package com.nationwar.team;
 
 import com.nationwar.NationWar;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-
+import java.io.File;
 import java.util.*;
 
 public class TeamMain {
-
     private final NationWar plugin;
-    private final TeamGson teamGson;
-
-    // 팀이름 -> UUID 문자열 리스트
-    private Map<String, List<String>> teams = new HashMap<>();
-
-    public static final String DEFAULT_TEAM = "방랑자";
+    private final File teamFile;
+    private TeamGson.TeamData data;
+    private final TeamChest teamChest;
 
     public TeamMain(NationWar plugin) {
         this.plugin = plugin;
-        this.teamGson = new TeamGson(plugin);
+        this.teamFile = new File(plugin.getDataFolder(), "team.json");
+        this.data = TeamGson.load(teamFile);
+        this.teamChest = new TeamChest(); // 추가
     }
 
-    /* ===================== 로드 / 저장 ===================== */
-
-    public void loadTeams() {
-        teams = teamGson.load();
-
-        // 방랑자 팀 없으면 생성
-        teams.putIfAbsent(DEFAULT_TEAM, new ArrayList<>());
-
-        // 서버에 있는 플레이어 중 팀 없는 애들 방랑자로
-        Bukkit.getOnlinePlayers().forEach(this::setDefaultTeam);
+    public void createTeam(String teamName, Player leader) {
+        // 기준서: 누구나 생성 가능, 생성자가 팀장이 된다.
+        if (data.teams.containsKey(teamName)) return;
+        List<String> members = new ArrayList<>();
+        members.add(leader.getUniqueId().toString());
+        data.teams.put(teamName, members);
+        saveTeams();
     }
 
-    public void saveTeams() {
-        teamGson.save(teams);
+    public void deleteTeam(String teamName) {
+        // 기준서: 팀을 삭제하고 팀원들을 방랑자로 변경
+        data.teams.remove(teamName);
+        data.colors.remove(teamName);
+        saveTeams();
     }
 
-    /* ===================== 기본 ===================== */
-
-    public void setDefaultTeam(Player player) {
-        removeFromAllTeams(player);
-        teams.get(DEFAULT_TEAM).add(player.getUniqueId().toString());
+    public boolean isLeader(String teamName, Player player) {
+        // 기준서: 생성자가 팀장 (리스트의 0번째 인덱스)
+        List<String> members = data.teams.get(teamName);
+        return members != null && members.get(0).equals(player.getUniqueId().toString());
     }
 
-    private void removeFromAllTeams(Player player) {
-        teams.values().forEach(list ->
-                list.remove(player.getUniqueId().toString())
-        );
-    }
-
-    public String getTeam(Player player) {
-        String uuid = player.getUniqueId().toString();
-        for (Map.Entry<String, List<String>> entry : teams.entrySet()) {
-            if (entry.getValue().contains(uuid)) {
-                return entry.getKey();
-            }
+    public String getPlayerTeam(UUID uuid) {
+        for (Map.Entry<String, List<String>> entry : data.teams.entrySet()) {
+            if (entry.getValue().contains(uuid.toString())) return entry.getKey();
         }
-        return DEFAULT_TEAM;
+        return "방랑자"; // 기준서: 기본 상태
     }
 
-    public boolean sameTeam(Player a, Player b) {
-        return getTeam(a).equals(getTeam(b));
+    public TeamChest getTeamChest() { return teamChest; }
+    public TeamGson.TeamData getData() { return data; }
+
+    public boolean sameTeam(Player p1, Player p2) {
+        String t1 = getPlayerTeam(p1.getUniqueId());
+        String t2 = getPlayerTeam(p2.getUniqueId());
+        return !t1.equals("방랑자") && t1.equals(t2);
     }
 
-    /* ===================== 팀 생성 / 삭제 ===================== */
-
-    public boolean createTeam(String name, Player leader) {
-        if (teams.containsKey(name)) return false;
-
-        teams.put(name, new ArrayList<>());
-        removeFromAllTeams(leader);
-        teams.get(name).add(leader.getUniqueId().toString());
-        saveTeams();
-        return true;
-    }
-
-    public void deleteTeam(String name) {
-        if (!teams.containsKey(name)) return;
-        if (name.equals(DEFAULT_TEAM)) return;
-
-        List<String> members = teams.get(name);
-        teams.remove(name);
-
-        // 팀원들 방랑자로
-        members.forEach(uuid ->
-                teams.get(DEFAULT_TEAM).add(uuid)
-        );
-        saveTeams();
-    }
-
-    /* ===================== 팀장 ===================== */
-
-    public boolean isLeader(Player player) {
-        String team = getTeam(player);
-        if (team.equals(DEFAULT_TEAM)) return false;
-
-        List<String> members = teams.get(team);
-        return members != null && !members.isEmpty()
-                && members.get(0).equals(player.getUniqueId().toString());
-    }
-
-    /* ===================== 초대 / 추가 ===================== */
-
-    public void addPlayerToTeam(Player player, String team) {
-        if (!teams.containsKey(team)) return;
-        removeFromAllTeams(player);
-        teams.get(team).add(player.getUniqueId().toString());
-        saveTeams();
-    }
-
-    public Map<String, List<String>> getTeams() {
-        return teams;
-    }
+    public void saveTeams() { TeamGson.save(teamFile, data); }
 }

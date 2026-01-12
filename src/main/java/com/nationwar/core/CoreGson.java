@@ -2,59 +2,34 @@ package com.nationwar.core;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
-import com.nationwar.NationWar;
-
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.lang.reflect.Type;
+import java.io.*;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class CoreGson {
+    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    private final File file;
-    private final Gson gson;
-
-    public CoreGson(NationWar plugin) {
-        this.file = new File(plugin.getDataFolder(), "core.json");
-        this.gson = new GsonBuilder().setPrettyPrinting().create();
+    public static class CoreInfo {
+        public String owner = "없음";
+        public double hp = 5000.0;
+        public double x, y, z;
+        public int id;
     }
 
-    public List<CoreData> load() {
-        try {
-            if (!file.exists()) {
-                return new ArrayList<>();
-            }
-            FileReader reader = new FileReader(file);
-            Type type = new TypeToken<Map<String, List<CoreData>>>(){}.getType();
-            Map<String, List<CoreData>> data = gson.fromJson(reader, type);
-            reader.close();
-
-            if (data == null || !data.containsKey("cores")) {
-                return new ArrayList<>();
-            }
-            return data.get("cores");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new ArrayList<>();
-        }
+    public static class CoreData {
+        public List<CoreInfo> cores = new ArrayList<>();
     }
 
-    public void save(List<CoreData> cores) {
-        try {
-            Map<String, Object> wrapper = new HashMap<>();
-            wrapper.put("cores", cores);
+    public static void save(File file, CoreData data) {
+        try (Writer writer = new FileWriter(file)) {
+            gson.toJson(data, writer);
+        } catch (IOException e) { e.printStackTrace(); }
+    }
 
-            FileWriter writer = new FileWriter(file);
-            gson.toJson(wrapper, writer);
-            writer.flush();
-            writer.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    public static CoreData load(File file) {
+        if (!file.exists()) return new CoreData();
+        try (Reader reader = new FileReader(file)) {
+            return gson.fromJson(reader, CoreData.class);
+        } catch (IOException e) { return new CoreData(); }
     }
 }

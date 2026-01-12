@@ -1,25 +1,17 @@
 name: NationWar
-version: 1.0.0
+version: 1.0
 main: com.nationwar.NationWar
-api-version: 1.21
-author: Mintina_
-
+api-version: 1.21 # 서버 버전에 맞춰 조정
 commands:
   메뉴:
-    description: 국가전쟁 메뉴 열기
+    description: 메인 메뉴를 엽니다.
   gamestart:
-    description: 게임 시작
-    permission: nationwar.admin
-  gamecontinue:
-    description: 코어 불러오기
-    permission: nationwar.admin
+    description: 게임을 시작합니다.
   팀:
-    description: 팀 관련 명령어
+    description: 팀 관리 명령어입니다.
   tpa:
-    description: 팀원 TPA
+    description: 팀원에게 텔레포트 요청을 보냅니다.
   국가창고:
-    description: 국가 공용 창고
-
-permissions:
-  nationwar.admin:
-    default: op
+    description: 팀 공용 창고를 엽니다.
+  gamecontinue:
+    description: 코어 데이터를 불러와 게임을 재개합니다.

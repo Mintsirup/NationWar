@@ -1,19 +1,163 @@
 package com.nationwar.listeners;
 
+import com.nationwar.NationWar;
+import com.nationwar.core.CoreGson;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.scheduler.BukkitRunnable;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class MenuClickListener implements Listener {
+    private final NationWar plugin;
+    private final Map<UUID, Location> tpWait = new HashMap<>();
+
+    public MenuClickListener(NationWar plugin) {
+        this.plugin = plugin;
+    }
 
     @EventHandler
     public void onMenuClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (!(event.getInventory().getHolder() instanceof GUIMenu menu)) return;
+        String title = event.getView().getTitle();
+        if (!title.contains("메뉴") && !title.contains("확인")) return;
 
         event.setCancelled(true);
+        if (event.getCurrentItem() == null || event.getCurrentItem().getType() == Material.AIR) return;
 
-        menu.onClick(player, event.getSlot());
+        Player p = (Player) event.getWhoClicked();
+        int slot = event.getRawSlot();
+        String team = plugin.getTeamMain().getPlayerTeam(p.getUniqueId());
+
+        // 1. 메인 메뉴 (슬롯: 10, 13, 16)
+        if (title.equals("메인 메뉴")) {
+            if (slot == 10) plugin.getGUIManager().openTeamMenu(p);
+            else if (slot == 13) plugin.getGUIManager().openCoreMenu(p);
+            else if (slot == 16) plugin.getGUIManager().openInfoMenu(p);
+        }
+
+        // 2. 팀 메뉴 (슬롯: 10, 13, 16)
+        else if (title.equals("팀 메뉴")) {
+            if (plugin.getTeamMain().isLeader(team, p)) {
+                if (slot == 10) plugin.getGUIManager().openTeamColorMenu(p);
+                else if (slot == 13) plugin.getGUIManager().openTeamInviteListMenu(p);
+                else if (slot == 16) plugin.getGUIManager().openTeamDeleteConfirmMenu(p);
+            } else {
+                if (slot == 13) p.performCommand("국가창고");
+            }
+        }
+
+        // 3. 팀 색 설정 메뉴 (슬롯: 0~8, 13)
+        else if (title.equals("팀 색 설정 메뉴")) {
+            if (slot >= 0 && slot <= 8 || slot == 13) {
+                String colorName = event.getCurrentItem().getItemMeta().getDisplayName();
+                plugin.getTeamMain().getData().colors.put(team, colorName);
+                plugin.getTeamMain().saveTeams();
+                p.sendMessage("§a팀 색상이 " + colorName + "§a(으)로 설정되었습니다.");
+                p.closeInventory();
+            }
+        }
+
+        // 4. 팀 초대 리스트 (플레이어 헤드 클릭)
+        else if (title.equals("팀 초대 메뉴")) {
+            ItemStack item = event.getCurrentItem();
+            if (item.getType() == Material.PLAYER_HEAD) {
+                SkullMeta meta = (SkullMeta) item.getItemMeta();
+                if (meta.getOwningPlayer() != null) {
+                    Player target = Bukkit.getPlayer(meta.getOwningPlayer().getUniqueId());
+                    if (target != null) plugin.getGUIManager().openTeamInviteConfirmMenu(p, target);
+                }
+            }
+        }
+
+        // 5. 팀 초대 확인 (슬롯: 19-수락, 25-취소)
+        else if (title.equals("팀 초대 확인 메뉴")) {
+            ItemStack head = event.getInventory().getItem(4);
+            SkullMeta meta = (SkullMeta) head.getItemMeta();
+            Player target = Bukkit.getPlayer(meta.getOwningPlayer().getUniqueId());
+
+            if (slot == 19 && target != null) {
+                plugin.getTeamMain().getData().teams.get(team).add(target.getUniqueId().toString());
+                plugin.getTeamMain().saveTeams();
+                p.sendMessage("§a" + target.getName() + "님을 초대했습니다.");
+                target.sendMessage("§a" + team + " 팀에 초대되었습니다.");
+                p.closeInventory();
+            } else if (slot == 25) {
+                plugin.getGUIManager().openTeamInviteListMenu(p);
+            }
+        }
+
+        // 6. 팀 삭제 확인 (슬롯: 19-확인, 25-취소)
+        else if (title.equals("팀 삭제 확인 메뉴")) {
+            if (slot == 19) {
+                plugin.getTeamMain().deleteTeam(team);
+                p.sendMessage("§c팀이 삭제되었습니다.");
+                p.closeInventory();
+            } else if (slot == 25) {
+                plugin.getGUIManager().openTeamMenu(p);
+            }
+        }
+
+        // 7. 코어 메뉴 (슬롯: 10, 11, 12, 14, 15, 16)
+        else if (title.equals("코어 메뉴")) {
+            int[] coreSlots = {10, 11, 12, 14, 15, 16};
+            for (int i = 0; i < coreSlots.length; i++) {
+                if (slot == coreSlots[i]) {
+                    if (event.getCurrentItem().getType() == Material.BEACON) {
+                        handleCoreTeleport(p, i);
+                    } else {
+                        p.sendMessage("§c해당 코어를 소유하고 있지 않습니다.");
+                    }
+                }
+            }
+        }
+    }
+
+    private void handleCoreTeleport(Player p, int coreId) {
+        if (coreId >= plugin.getCoreMain().getCoreData().cores.size()) return;
+
+        CoreGson.CoreInfo core = plugin.getCoreMain().getCoreData().cores.get(coreId);
+        Location target = new Location(p.getWorld(), core.x + 0.5, core.y + 1, core.z + 0.5);
+        UUID uuid = p.getUniqueId();
+
+        tpWait.put(uuid, p.getLocation());
+        p.closeInventory();
+        p.sendMessage("§a10초간 움직이지 마십시오. 텔레포트가 시작됩니다.");
+
+        new BukkitRunnable() {
+            int count = 10;
+            @Override
+            public void run() {
+                if (!p.isOnline() || !tpWait.containsKey(uuid)) {
+                    this.cancel();
+                    return;
+                }
+
+                // 기준서: 10초간 움직이지 않아야 함 (0.1블록 이상 이동 시 취소)
+                if (p.getLocation().distance(tpWait.get(uuid)) > 0.1) {
+                    p.sendMessage("§c움직임이 감지되어 텔레포트가 취소되었습니다.");
+                    tpWait.remove(uuid);
+                    this.cancel();
+                    return;
+                }
+
+                if (count <= 0) {
+                    p.teleport(target);
+                    p.sendMessage("§a코어로 이동되었습니다.");
+                    tpWait.remove(uuid);
+                    this.cancel();
+                    return;
+                }
+                count--;
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
     }
 }
