@@ -1,14 +1,13 @@
 package com.nationwar.command;
 
 import com.nationwar.NationWar;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+
 import java.util.Random;
 
 public class GamestartCommand implements CommandExecutor {
@@ -43,8 +42,47 @@ public class GamestartCommand implements CommandExecutor {
             }
             p.teleport(loc);
         }
-        Bukkit.broadcastMessage("§6[국가전쟁] §f게임이 시작되었습니다!");
+        startCaptureEvent();
         plugin.getCoreMain().LoadCores(); // 코어 생성 로직 호출
         return true;
     }
+
+    public void startCaptureEvent() {
+        new BukkitRunnable() {
+            int count = 5;
+
+            @Override
+            public void run() {
+                if (count > 0) {
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        p.sendTitle("§c§l" + count, "§f전쟁 시작까지...", 0, 21, 0);
+                        p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 1.0f);
+                    }
+                } else {
+                    // 전쟁 시작 실제 연출
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        p.sendTitle("§4§lWAR BEGINS", "§e지금부터 모든 코어의 보호막이 해제됩니다!", 10, 70, 20);
+                        p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.8f);
+                        p.playSound(p.getLocation(), Sound.EVENT_RAID_HORN, 1.0f, 1.0f);
+                    }
+
+                    Bukkit.broadcastMessage("");
+                    Bukkit.broadcastMessage("§8§l[ §4§l! §8§l] §f------------------------------------------ §8§l[ §4§l! §8§l]");
+                    Bukkit.broadcastMessage("");
+                    Bukkit.broadcastMessage("   §c§l▣ 국가전쟁 점령 시간 선포 ▣");
+                    Bukkit.broadcastMessage("");
+                    Bukkit.broadcastMessage("   §7지금 이 순간부터 모든 국가의 코어를 공격할 수 있습니다.");
+                    Bukkit.broadcastMessage("   §7자신의 국가를 지키고, 적의 심장을 꿰뚫으십시오.");
+                    Bukkit.broadcastMessage("");
+                    Bukkit.broadcastMessage("§8§l[ §4§l! §8§l] §f------------------------------------------ §8§l[ §4§l! §8§l]");
+                    Bukkit.broadcastMessage("");
+
+                    plugin.getCoreMain().setGameStarted(true); // 게임 상태 변경
+                    this.cancel();
+                }
+                count--;
+            }
+        }.runTaskTimer(plugin, 0L, 20L); // 1초 간격 실행
+    }
+
 }

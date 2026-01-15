@@ -11,8 +11,12 @@ public class TeamGson {
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     public static class TeamData {
+        // 팀별 멤버 리스트
         public Map<String, List<String>> teams = new HashMap<>();
-        public Map<String, String> colors = new HashMap<>(); // 팀별 색상 저장
+        // 팀별 팀장 UUID
+        public Map<String, String> leaders = new HashMap<>();
+        // 팀별 색상 정보 (여기에 저장됩니다!)
+        public Map<String, String> colors = new HashMap<>();
     }
 
     public static void save(File file, TeamData data) {

@@ -58,10 +58,14 @@ public class MenuClickListener implements Listener {
         // 3. 팀 색 설정 메뉴 (슬롯: 0~8, 13)
         else if (title.equals("팀 색 설정 메뉴")) {
             if (slot >= 0 && slot <= 8 || slot == 13) {
-                String colorName = event.getCurrentItem().getItemMeta().getDisplayName();
-                plugin.getTeamMain().getData().colors.put(team, colorName);
-                plugin.getTeamMain().saveTeams();
-                p.sendMessage("§a팀 색상이 " + colorName + "§a(으)로 설정되었습니다.");
+                // 아이템의 displayName 대신 Material이나 미리 정의된 이름을 사용해 정확한 ChatColor 매칭
+                String colorName = event.getCurrentItem().getType().name().split("_")[0];
+
+                // 예: RED_CONCRETE -> RED 추출 (기준서 ChatColor와 일치시키기 위함)
+                if (colorName.equals("LIGHT")) colorName = "LIGHT_PURPLE"; // 예외처리 예시
+
+                plugin.getTeamMain().changeColor(team, colorName);
+                p.sendMessage("§a팀 색상이 " + colorName + "(으)로 성공적으로 변경되었습니다.");
                 p.closeInventory();
             }
         }
@@ -84,14 +88,25 @@ public class MenuClickListener implements Listener {
             SkullMeta meta = (SkullMeta) head.getItemMeta();
             Player target = Bukkit.getPlayer(meta.getOwningPlayer().getUniqueId());
 
-            if (slot == 19 && target != null) {
-                plugin.getTeamMain().getData().teams.get(team).add(target.getUniqueId().toString());
-                plugin.getTeamMain().saveTeams();
-                p.sendMessage("§a" + target.getName() + "님을 초대했습니다.");
-                target.sendMessage("§a" + team + " 팀에 초대되었습니다.");
+            if (slot == 19 && target != null) { // [확인] 버튼
+
+                if (plugin.getTeamInviteManager() == null) {
+                    p.sendMessage("§c시스템 오류: 초대 매니저가 로드되지 않았습니다.");
+                    return;
+                }
+
+                plugin.getTeamInviteManager().sendInvite(target.getUniqueId(), team);
+
+                p.sendMessage("§a" + target.getName() + "님에게 초대장을 보냈습니다.");
+
+                // 초대받은 대상에게 TPA 방식 메시지 전송
+                net.md_5.bungee.api.chat.TextComponent msg = new net.md_5.bungee.api.chat.TextComponent("§6§l[!] §e" + team + " §f팀에서 초대를 보냈습니다. ");
+                net.md_5.bungee.api.chat.TextComponent accept = new net.md_5.bungee.api.chat.TextComponent("§a§l[수락] ");
+                accept.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(net.md_5.bungee.api.chat.ClickEvent.Action.RUN_COMMAND, "/팀 수락"));
+
+                msg.addExtra(accept);
+                target.spigot().sendMessage(msg);
                 p.closeInventory();
-            } else if (slot == 25) {
-                plugin.getGUIManager().openTeamInviteListMenu(p);
             }
         }
 
@@ -148,13 +163,17 @@ public class MenuClickListener implements Listener {
                     this.cancel();
                     return;
                 }
+                if (count > 0) {
+                    p.sendTitle("§a§l" + count, "§f움직이지 마세요! 이동 중...", 0, 21, 0);
+                    p.playSound(p.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_HAT, 1, 1);
+                }
 
                 if (count <= 0) {
                     p.teleport(target);
-                    p.sendMessage("§a코어로 이동되었습니다.");
+                    p.sendTitle("§a§l이동 완료", "§f코어 지점에 도착했습니다.", 10, 20, 10);
+                    p.playSound(p.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1, 1);
                     tpWait.remove(uuid);
                     this.cancel();
-                    return;
                 }
                 count--;
             }

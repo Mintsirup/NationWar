@@ -16,17 +16,23 @@ public class InfoMenu {
     public void open(Player p) {
         Inventory inv = Bukkit.createInventory(null, 27, "정보 메뉴");
 
-        ItemStack book = createItem(Material.BOOK, "§e국가전쟁 정보");
-        ItemMeta bm = book.getItemMeta();
-        bm.setLore(Arrays.asList("§f월, 수, 금 19:00~20:00 점령 가능", "§f코어 6개 점령 시 승리"));
-        book.setItemMeta(bm);
+        ItemStack guide = createItem(Material.KNOWLEDGE_BOOK, "§a§l플레이 가이드");
+        ItemMeta gm = guide.getItemMeta();
+        gm.setLore(Arrays.asList(
+                "§71. §f/팀 <이름>으로 국가를 세우세요.",
+                "§72. §f팀원을 모집하고 §e국가창고§f를 활용하세요.",
+                "§73. §6월/수/금 19:00§f에 열리는 코어를 공격하세요.",
+                "§74. §f모든 코어(6개)를 차지하면 승리합니다!"
+        ));
+        guide.setItemMeta(gm);
+        inv.setItem(13, guide); // 기존 stick 대신 가이드북 배치
 
         ItemStack stick = createItem(Material.DEBUG_STICK, "§b명령어 정보");
         ItemMeta sm = stick.getItemMeta();
         sm.setLore(Arrays.asList("§f/메뉴, /팀, /tpa", "§f/국가창고, /gamestart"));
         stick.setItemMeta(sm);
 
-        inv.setItem(10, book);
+        inv.setItem(10, guide);
         inv.setItem(13, stick);
         inv.setItem(16, createItem(Material.COMMAND_BLOCK, "§d제작자. Mintina_"));
         p.openInventory(inv);

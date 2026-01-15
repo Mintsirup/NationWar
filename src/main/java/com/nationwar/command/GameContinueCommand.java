@@ -11,13 +11,10 @@ public class GameContinueCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        // 기준서: core.json 내용을 불러와 코어 데이터 읽기
-        boolean success = plugin.getCoreMain().reloadCoreFromConfig();
-        if (success) {
-            plugin.getLogger().info("코어 불러오기 성공");
-        } else {
-            plugin.getLogger().info("코어 불러오기 실패");
-        }
+        if (!sender.isOp()) return false;
+
+        plugin.getCoreMain().respawnAllCores();
+        sender.sendMessage("§a데이터를 기반으로 코어를 복구했습니다.");
         return true;
     }
 }

@@ -5,6 +5,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Ghast;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -42,7 +43,14 @@ public class CoreMain {
     public void spawnCoreGhast(int id, Location loc) {
         Ghast ghast = (Ghast) loc.getWorld().spawnEntity(loc.add(0.5, 1, 0.5), EntityType.GHAST);
         ghast.setCustomName("§f코어 " + id);
-        ghast.setAI(false);
+        ghast.setCustomNameVisible(true); // 이름이 항상 보이도록 설정
+        ghast.setAI(false);              // 움직이지 않게 고정
+        ghast.setSilent(true);          // 가스트 비명 소리 제거
+
+        ghast.setRemoveWhenFarAway(false);
+
+        ghast.setInvulnerable(false); // 공격은 받아야 하므로 무적은 해제
+
         // 리스너에서 인식할 수 있도록 메타데이터 부여
         ghast.setMetadata("core_id", new FixedMetadataValue(plugin, id));
     }
@@ -83,6 +91,40 @@ public class CoreMain {
         }
     }
 
+    public void removeAllCoreGhasts() {
+        for (World world : Bukkit.getWorlds()) {
+            for (Entity entity : world.getEntitiesByClass(Ghast.class)) {
+                // 메타데이터나 이름으로 코어 가스트인지 확인
+                if (entity.hasMetadata("core_id")) {
+                    entity.remove();
+                }
+            }
+        }
+    }
+
+    private boolean gameStarted = false;
+
+    public boolean isGameStarted() {
+        return gameStarted;
+    }
+
+    public void setGameStarted(boolean gameStarted) {
+        this.gameStarted = gameStarted;
+
+        // 상태 변경 시 로그 기록 (디버깅용)
+        Bukkit.getLogger().info("[NationWar] 게임 상태가 변경되었습니다: " + (gameStarted ? "시작" : "대기"));
+    }
+
+    public void respawnAllCores() {
+        removeAllCoreGhasts(); // 혹시 남아있을 가스트 중복 방지
+
+        for (CoreGson.CoreInfo core : getCoreData().cores) {
+            Location loc = new Location(Bukkit.getWorld("world"), core.x, core.y, core.z); // 월드 이름 확인 필요
+            spawnCoreGhast(core.id, loc);
+        }
+        Bukkit.broadcastMessage("§6§l[!] §f모든 코어 가스트가 성공적으로 재생성되었습니다.");
+    }
+
     public void startTimeChecker() {
         new BukkitRunnable() {
             @Override
@@ -96,6 +138,23 @@ public class CoreMain {
                     saveCores();
                     checkVictory(); // 승리 조건 체크
                 }
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
+    }
+
+    public void startCaptureEvent() {
+        new BukkitRunnable() {
+            int count = 5;
+            @Override
+            public void run() {
+                if (count <= 0) {
+
+                    // 핵심: 게임 시작 상태로 전환!
+                    plugin.getCoreMain().setGameStarted(true);
+
+                    this.cancel();
+                }
+                count--;
             }
         }.runTaskTimer(plugin, 0L, 20L);
     }
