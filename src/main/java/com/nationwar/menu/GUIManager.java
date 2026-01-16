@@ -3,6 +3,10 @@ package com.nationwar.menu;
 import com.nationwar.NationWar;
 import com.nationwar.menu.menulist.*;
 import org.bukkit.entity.Player;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 
 public class GUIManager {
     private final NationWar plugin;
@@ -19,4 +23,5 @@ public class GUIManager {
     public void openTeamDeleteConfirmMenu(Player p) { new TeamDeleteConfirmMenu(plugin).open(p); }
     public void openCoreMenu(Player p) { new CoreMenu(plugin).open(p); }
     public void openInfoMenu(Player p) { new InfoMenu(plugin).open(p); }
+
 }

@@ -2,6 +2,10 @@ package com.nationwar.listeners;
 
 import com.nationwar.NationWar;
 import com.nationwar.core.CoreGson;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -88,24 +92,21 @@ public class MenuClickListener implements Listener {
             SkullMeta meta = (SkullMeta) head.getItemMeta();
             Player target = Bukkit.getPlayer(meta.getOwningPlayer().getUniqueId());
 
-            if (slot == 19 && target != null) { // [확인] 버튼
-
+            if (slot == 19 && target != null) { // [확인] 버튼 클릭 시
                 if (plugin.getTeamInviteManager() == null) {
                     p.sendMessage("§c시스템 오류: 초대 매니저가 로드되지 않았습니다.");
                     return;
                 }
 
+                // 1. 데이터 저장
                 plugin.getTeamInviteManager().sendInvite(target.getUniqueId(), team);
 
+                // 2. 수락/거절 버튼이 포함된 통합 메시지 전송 (이 메서드 하나면 충분합니다)
+                sendInviteMessage(target, team);
+
                 p.sendMessage("§a" + target.getName() + "님에게 초대장을 보냈습니다.");
-
-                // 초대받은 대상에게 TPA 방식 메시지 전송
-                net.md_5.bungee.api.chat.TextComponent msg = new net.md_5.bungee.api.chat.TextComponent("§6§l[!] §e" + team + " §f팀에서 초대를 보냈습니다. ");
-                net.md_5.bungee.api.chat.TextComponent accept = new net.md_5.bungee.api.chat.TextComponent("§a§l[수락] ");
-                accept.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(net.md_5.bungee.api.chat.ClickEvent.Action.RUN_COMMAND, "/팀 수락"));
-
-                msg.addExtra(accept);
-                target.spigot().sendMessage(msg);
+                p.closeInventory();
+            } else if (slot == 25) {
                 p.closeInventory();
             }
         }
@@ -134,6 +135,31 @@ public class MenuClickListener implements Listener {
                 }
             }
         }
+    }
+
+    public void sendInviteMessage(Player target, String teamName) {
+        target.sendMessage("");
+        target.sendMessage("  §6§l[!] §e" + teamName + " §f팀의 초대가 도착했습니다!");
+
+        // 1. 수락 버튼
+        TextComponent accept = new TextComponent("  §a§l[ 수락 ]");
+        accept.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/팀 수락"));
+        accept.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§f클릭 시 팀에 합류하고 팀장에게 이동합니다.").create()));
+
+        // 2. 공백 (버튼 사이 간격)
+        TextComponent space = new TextComponent("    ");
+
+        // 3. 거절 버튼
+        TextComponent deny = new TextComponent("§c§l[ 거절 ]");
+        deny.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/팀 거절"));
+        deny.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§f초대를 무시합니다.").create()));
+
+        // 4. 합쳐서 보내기 (이게 핵심입니다!)
+        accept.addExtra(space);
+        accept.addExtra(deny);
+
+        target.spigot().sendMessage(accept);
+        target.sendMessage("");
     }
 
     private void handleCoreTeleport(Player p, int coreId) {
