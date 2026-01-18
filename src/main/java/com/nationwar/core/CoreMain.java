@@ -19,6 +19,7 @@ public class CoreMain {
     private final NationWar plugin;
     private final File coreFile;
     private CoreGson.CoreData coreData;
+    private boolean gameStarted = false;
 
     public CoreMain(NationWar plugin) {
         this.plugin = plugin;
@@ -43,15 +44,11 @@ public class CoreMain {
     public void spawnCoreGhast(int id, Location loc) {
         Ghast ghast = (Ghast) loc.getWorld().spawnEntity(loc.add(0.5, 1, 0.5), EntityType.GHAST);
         ghast.setCustomName("§f코어 " + id);
-        ghast.setCustomNameVisible(true); // 이름이 항상 보이도록 설정
-        ghast.setAI(false);              // 움직이지 않게 고정
-        ghast.setSilent(true);          // 가스트 비명 소리 제거
-
+        ghast.setCustomNameVisible(true);
+        ghast.setAI(false);
+        ghast.setSilent(true);
         ghast.setRemoveWhenFarAway(false);
-
-        ghast.setInvulnerable(false); // 공격은 받아야 하므로 무적은 해제
-
-        // 리스너에서 인식할 수 있도록 메타데이터 부여
+        ghast.setInvulnerable(false);
         ghast.setMetadata("core_id", new FixedMetadataValue(plugin, id));
     }
 
@@ -94,25 +91,16 @@ public class CoreMain {
     public void removeAllCoreGhasts() {
         for (World world : Bukkit.getWorlds()) {
             for (Entity entity : world.getEntitiesByClass(Ghast.class)) {
-                // 메타데이터나 이름으로 코어 가스트인지 확인
-                if (entity.hasMetadata("core_id")) {
-                    entity.remove();
-                }
+                if (entity.hasMetadata("core_id")) entity.remove();
             }
         }
     }
 
-    private boolean gameStarted = false;
+    public boolean isGameStarted() { return gameStarted; }
 
-    public boolean isGameStarted() {
-        return gameStarted;
-    }
-
-    public void setGameStarted(boolean gameStarted) {
-        this.gameStarted = gameStarted;
-
-        // 상태 변경 시 로그 기록 (디버깅용)
-        Bukkit.getLogger().info("[NationWar] 게임 상태가 변경되었습니다: " + (gameStarted ? "시작" : "대기"));
+    public void setGameStarted(boolean started) {
+        this.gameStarted = started;
+        plugin.getLogger().info("[Core] 보호막 상태 변경: " + (started ? "해제(공격가능)" : "가동(공격불가)"));
     }
 
     public void respawnAllCores() {
@@ -160,11 +148,16 @@ public class CoreMain {
     }
 
     public boolean isCaptureTime() {
-        // 기준서: 월, 수, 금 19:00 ~ 20:00
         LocalDateTime now = LocalDateTime.now();
         DayOfWeek day = now.getDayOfWeek();
-        boolean isDay = (day == DayOfWeek.MONDAY || day == DayOfWeek.WEDNESDAY || day == DayOfWeek.FRIDAY);
-        return isDay && (now.getHour() == 19);
+        int hour = now.getHour();
+
+        // 월, 수, 금, 일 체크
+        boolean isDay = (day == DayOfWeek.MONDAY || day == DayOfWeek.WEDNESDAY ||
+                day == DayOfWeek.FRIDAY || day == DayOfWeek.SUNDAY);
+        boolean isHour = (hour == 19); // 19:00 ~ 19:59
+
+        return isDay && isHour;
     }
 
     public void saveCores() { CoreGson.save(coreFile, coreData); }

@@ -5,6 +5,9 @@ import com.nationwar.core.CoreGson;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -19,52 +22,85 @@ public class PlayerDistanceDetect extends BukkitRunnable {
     // 이미 알림을 보낸 침입자 상태를 기억합니다.
     private final Map<UUID, String> alertedInvaders = new HashMap<>();
 
+    private final Map<UUID, BossBar> playerBossBars = new HashMap<>();
+
     public PlayerDistanceDetect(NationWar plugin) {
         this.plugin = plugin;
     }
 
     @Override
     public void run() {
-        for (Player invader : Bukkit.getOnlinePlayers()) {
-            UUID invaderUUID = invader.getUniqueId();
-            String invaderTeam = plugin.getTeamMain().getPlayerTeam(invaderUUID);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            UUID uuid = p.getUniqueId();
+            String playerTeam = plugin.getTeamMain().getPlayerTeam(uuid);
+            CoreGson.CoreInfo nearestCore = null;
+            double minDistance = 250.0; // 다시 250블록 제한 설정
 
-            boolean isInsideAnyCore = false; // 현재 어떤 코어라도 근처에 있는지 체크
-
+            // 1. 250블록 내에서 가장 가까운 코어 찾기 (팀 상관 없음)
             for (CoreGson.CoreInfo core : plugin.getCoreMain().getCoreData().cores) {
-                // 주인이 없거나 자기 팀 코어라면 무시
-                if (core.owner.equals("없음") || core.owner.equals("방랑자")) continue;
-                if (invaderTeam.equals(core.owner)) continue;
+                Location coreLoc = new Location(p.getWorld(), core.x, core.y, core.z);
+                if (!p.getWorld().equals(coreLoc.getWorld())) continue;
 
-                Location coreLoc = new Location(invader.getWorld(), core.x, core.y, core.z);
-
-                // 월드가 다르면 거리 계산 불가하므로 패스
-                if (!invader.getWorld().equals(coreLoc.getWorld())) continue;
-
-                double distance = invader.getLocation().distance(coreLoc);
-
-                if (distance <= 250) {
-                    isInsideAnyCore = true;
-
-                    // 1. 처음 진입했을 때만 팀원들에게 알림 전송
-                    if (!alertedInvaders.containsKey(invaderUUID) || !alertedInvaders.get(invaderUUID).equals(core.owner)) {
-                        sendAlertToTeam(core.owner, invader, invaderTeam);
-                        alertedInvaders.put(invaderUUID, core.owner);
-
-                        // 2. 침입자 본인에게 타이틀 및 효과 부여
-                        invader.sendTitle("§4§l[!] 경고", "§c적팀의 코어 반경(250m)에 진입했습니다!", 10, 40, 10);
-                        invader.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
-                        invader.playSound(invader.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1.5f);
-                    }
+                double dist = p.getLocation().distance(coreLoc);
+                if (dist <= 250 && dist < minDistance) {
+                    minDistance = dist;
+                    nearestCore = core;
                 }
             }
 
-            // 3. 만약 어떤 코어 주변(250m)에도 있지 않다면 상태 초기화 및 발광 제거
-            if (!isInsideAnyCore && alertedInvaders.containsKey(invaderUUID)) {
-                alertedInvaders.remove(invaderUUID);
-                invader.removePotionEffect(PotionEffectType.GLOWING);
-                invader.sendMessage("§a§l[!] §f적팀 코어의 감지 범위에서 벗어났습니다.");
+            // 2. 코어 근처(250m)라면 무조건 보스바 표시
+            if (nearestCore != null) {
+                updateBossBar(p, nearestCore);
+
+                // [추가 로직] 적팀 코어일 경우에만 침입 알림 및 발광 효과 적용
+                if (!nearestCore.owner.equals(playerTeam) && !nearestCore.owner.equals("없음")) {
+                    if (!alertedInvaders.containsKey(uuid)) {
+                        sendAlertToTeam(nearestCore.owner, p, playerTeam);
+                        alertedInvaders.put(uuid, nearestCore.owner);
+                        p.sendTitle("§4§l[!] 침입", "§c적팀 코어 구역에 진입했습니다!", 10, 40, 10);
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
+                    }
+                }
+            } else {
+                // 250m 밖으로 나가면 보스바 및 침입 효과 제거
+                removeBossBar(p);
+                if (alertedInvaders.containsKey(uuid)) {
+                    alertedInvaders.remove(uuid);
+                    p.removePotionEffect(PotionEffectType.GLOWING);
+                    p.sendMessage("§a[!] 구역을 벗어나 보스바와 발광 효과가 해제되었습니다.");
+                }
             }
+        }
+    }
+
+    private void updateBossBar(Player p, CoreGson.CoreInfo core) {
+        BossBar bar = playerBossBars.get(p.getUniqueId());
+
+        // 보스바가 없으면 생성
+        if (bar == null) {
+            bar = Bukkit.createBossBar("§e§l" + core.owner + " 팀의 코어", BarColor.RED, BarStyle.SOLID);
+            bar.addPlayer(p);
+            playerBossBars.put(p.getUniqueId(), bar);
+        }
+
+        // 보스바 내용 업데이트 (코어 체력 반영)
+        double healthPercent = core.hp / 5000.0;
+        if (healthPercent < 0) healthPercent = 0;
+        if (healthPercent > 1) healthPercent = 1;
+
+        bar.setProgress(healthPercent);
+        bar.setTitle("§6§l" + core.owner + " §f팀의 코어 §7| §c" + (int)core.hp + " HP");
+
+        // 체력에 따라 색상 변경 (디테일)
+        if (healthPercent > 0.6) bar.setColor(BarColor.GREEN);
+        else if (healthPercent > 0.3) bar.setColor(BarColor.YELLOW);
+        else bar.setColor(BarColor.RED);
+    }
+
+    void removeBossBar(Player p) {
+        BossBar bar = playerBossBars.remove(p.getUniqueId());
+        if (bar != null) {
+            bar.removeAll();
         }
     }
 

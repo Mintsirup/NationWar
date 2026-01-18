@@ -14,6 +14,11 @@ import java.io.File;
 import java.util.*;
 
 public class TeamMain {
+    private final Set<String> storageLock = new HashSet<>(); // 창고 잠금 목록
+
+    public boolean isStorageLocked(String teamName) { return storageLock.contains(teamName); }
+    public void lockStorage(String teamName) { storageLock.add(teamName); }
+    public void unlockStorage(String teamName) { storageLock.remove(teamName); }
     private final NationWar plugin;
     private final File teamFile;
     private TeamGson.TeamData data;
@@ -23,7 +28,7 @@ public class TeamMain {
         this.plugin = plugin;
         this.teamFile = new File(plugin.getDataFolder(), "team.json");
         this.data = TeamGson.load(teamFile);
-        this.teamChest = new TeamChest(); // 추가
+        this.teamChest = new TeamChest(plugin); // 추가
     }
 
     public void checkLeaderActivity() {

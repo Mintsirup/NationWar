@@ -137,6 +137,20 @@ public class MenuClickListener implements Listener {
         }
     }
 
+    @EventHandler
+    public void onChestClose(org.bukkit.event.inventory.InventoryCloseEvent event) {
+        String title = event.getView().getTitle();
+        if (title.contains("국가 창고")) {
+            // 타이틀에서 "§0"과 " 국가 창고"를 제거하여 순수 팀 이름 추출
+            String teamName = title.replace("§0", "").replace(" 국가 창고", "");
+
+            // 실시간으로 파일에 저장
+            plugin.getTeamMain().getTeamChest().updateTeamChest(teamName, event.getInventory());
+
+            event.getPlayer().sendMessage("§a§l[!] §f국가 창고의 아이템이 성공적으로 보관되었습니다.");
+        }
+    }
+
     public void sendInviteMessage(Player target, String teamName) {
         target.sendMessage("");
         target.sendMessage("  §6§l[!] §e" + teamName + " §f팀의 초대가 도착했습니다!");

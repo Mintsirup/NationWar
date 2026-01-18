@@ -20,22 +20,25 @@ public class NationWar extends JavaPlugin {
     private TpaMain tpaMain;
     private GUIManager guiManager; // 추가
     private TeamInviteManager teamInviteManager;
+    private PlayerDistanceDetect distanceDetect; // 변수 선언
 
     @Override
     public void onEnable() {
         instance = this;
-
-        // 1. 데이터 폴더 및 매니저 객체들 먼저 생성 (순서 중요!)
         if (!getDataFolder().exists()) getDataFolder().mkdirs();
 
-        // 리스너가 참조하는 매니저들을 최우선으로 초기화
+        // 1. 매니저들 초기화
         this.teamInviteManager = new TeamInviteManager();
         this.teamMain = new TeamMain(this);
         this.coreMain = new CoreMain(this);
         this.tpaMain = new TpaMain(this);
         this.guiManager = new GUIManager(this);
 
-        // 2. 명령어 등록
+        // 2. [중요] 감지기 객체를 생성하여 변수에 저장 (이게 null 에러 해결책)
+        this.distanceDetect = new PlayerDistanceDetect(this);
+        this.distanceDetect.runTaskTimer(this, 0L, 20L);
+
+        // 3. 명령어 등록
         getCommand("메뉴").setExecutor(new MenuCommand(this));
         getCommand("gamestart").setExecutor(new GamestartCommand(this));
         getCommand("팀").setExecutor(new TeamCommand(this));
@@ -43,22 +46,19 @@ public class NationWar extends JavaPlugin {
         getCommand("국가창고").setExecutor(new TeamChestCommand(this));
         getCommand("gamecontinue").setExecutor(new GameContinueCommand(this));
 
-        // 3. 리스너 등록
-        getServer().getPluginManager().registerEvents(new JoinListener(this), this); // 분리된 리스너 등록
-        getServer().getPluginManager().registerEvents(new MenuClickListener(this), this); // 여기서 null 참조 방지됨
+        // 4. 리스너 등록
+        getServer().getPluginManager().registerEvents(new JoinListener(this), this);
+        getServer().getPluginManager().registerEvents(new MenuClickListener(this), this);
         getServer().getPluginManager().registerEvents(new BlockProtection(), this);
         getServer().getPluginManager().registerEvents(new CoreDamageListener(this), this);
         getServer().getPluginManager().registerEvents(new PvpListener(this), this);
+        getServer().getPluginManager().registerEvents(new InventoryCloseListener(this), this);
 
         coreMain.startTimeChecker();
 
-        new PlayerDistanceDetect(this).runTaskTimer(this, 0L, 20L);
-
-        // 팀장 활동량 체크 (서버가 켜진 후 5초 뒤 실행)
         Bukkit.getScheduler().runTaskLater(this, () -> {
             this.teamMain.checkLeaderActivity();
         }, 100L);
-
     }
 
     @Override
@@ -82,4 +82,7 @@ public class NationWar extends JavaPlugin {
     public TpaMain getTpaMain() { return tpaMain; }
     public GUIManager getGUIManager() { return guiManager; }// 추가됨
     public TeamInviteManager getTeamInviteManager() { return teamInviteManager; }
+    public PlayerDistanceDetect getDistanceDetect() {
+        return distanceDetect;
+    }
 }

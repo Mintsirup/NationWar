@@ -9,6 +9,8 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.UUID;
+
 public class TpaCommand implements CommandExecutor {
     private final NationWar plugin;
     public TpaCommand(NationWar plugin) { this.plugin = plugin; }
@@ -20,21 +22,42 @@ public class TpaCommand implements CommandExecutor {
 
         if (args.length < 1) return false;
 
-        if (args[0].equals("수락") || args[0].equals("거절")) {
-            // 수락/거절 로직 처리
+        // --- 수락 로직 ---
+        if (args[0].equals("수락")) {
+            UUID requesterUUID = plugin.getTpaMain().getRequest(p.getUniqueId());
+            if (requesterUUID == null) {
+                p.sendMessage("§c받은 TPA 요청이 없습니다.");
+                return true;
+            }
+
+            Player requester = Bukkit.getPlayer(requesterUUID);
+            if (requester != null && requester.isOnline()) {
+                requester.teleport(p.getLocation()); // 텔레포트 실행
+                requester.sendMessage("§a" + p.getName() + " 님이 TPA를 수락했습니다.");
+                p.sendMessage("§a" + requester.getName() + " 님을 내 위치로 이동시켰습니다.");
+            }
+            plugin.getTpaMain().removeRequest(p.getUniqueId());
             return true;
         }
 
-        Player target = Bukkit.getPlayer(args[0]);
-        if (target == null) return true;
+        if (args[0].equals("거절")) {
+            plugin.getTpaMain().removeRequest(p.getUniqueId());
+            p.sendMessage("§cTPA 요청을 거절했습니다.");
+            return true;
+        }
 
-        // 기준서: 같은 팀원에게만 보낼 수 있음
+        // --- 요청 보내기 로직 ---
+        Player target = Bukkit.getPlayer(args[0]);
+        if (target == null) {
+            p.sendMessage("§c해당 플레이어를 찾을 수 없습니다.");
+            return true;
+        }
+
         if (!plugin.getTeamMain().sameTeam(p, target)) {
             p.sendMessage("§c팀원에게만 tpa를 보낼 수 있습니다.");
             return true;
         }
 
-        // 기준서: 20분의 쿨타임
         long cooldown = plugin.getTpaMain().getRemainCoolDown(p.getUniqueId());
         if (cooldown > 0) {
             p.sendMessage("§c쿨타임이 " + (cooldown / 1000 / 60) + "분 남았습니다.");
@@ -43,7 +66,6 @@ public class TpaCommand implements CommandExecutor {
 
         plugin.getTpaMain().sendRequest(p, target);
 
-        // 기준서: [수락] [거절] 문구가 포함된 메시지 전송
         TextComponent msg = new TextComponent("§e" + p.getName() + "님의 TPA 요청: ");
         TextComponent accept = new TextComponent("§a[수락] ");
         accept.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpa 수락"));
@@ -53,7 +75,7 @@ public class TpaCommand implements CommandExecutor {
         msg.addExtra(accept);
         msg.addExtra(deny);
         target.spigot().sendMessage(msg);
-        p.sendMessage("§a요청을 보냈습니다.");
+        p.sendMessage("§a" + target.getName() + " 님에게 TPA 요청을 보냈습니다.");
 
         return true;
     }
