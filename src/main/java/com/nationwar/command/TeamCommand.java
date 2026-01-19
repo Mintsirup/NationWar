@@ -1,6 +1,7 @@
 package com.nationwar.command;
 
 import com.nationwar.NationWar;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -23,7 +24,7 @@ public class TeamCommand implements CommandExecutor {
             String invitedTeam = plugin.getTeamInviteManager().getInvite(uuid);
 
             if (invitedTeam == null) {
-                p.sendMessage("§c받은 초대장이 없거나 만료되었습니다.");
+                p.sendMessage(TextComponent.fromLegacyText("§c받은 초대장이 없거나 만료되었습니다."));
                 return true;
             }
 
@@ -39,11 +40,11 @@ public class TeamCommand implements CommandExecutor {
                 Player leader = Bukkit.getPlayer(UUID.fromString(leaderUUIDStr));
                 if (leader != null && leader.isOnline()) {
                     p.teleport(leader.getLocation());
-                    p.sendMessage("§e[!] §a팀에 합류하여 팀장 " + leader.getName() + " 님에게 이동되었습니다.");
+                    p.sendMessage(TextComponent.fromLegacyText("§e[!] §a팀에 합류하여 팀장 " + leader.getName() + " 님에게 이동되었습니다."));
+                    p.sendMessage(TextComponent.fromLegacyText("§a§l" + invitedTeam + " §f팀의 일원이 되신 것을 환영합니다!"));
                 }
             }
 
-            p.sendMessage("§a§l" + invitedTeam + " §f팀의 일원이 되신 것을 환영합니다!");
             plugin.getTeamMain().updateDisplay(p);
 
             // 3. 마지막에 초대장 삭제
@@ -55,12 +56,12 @@ public class TeamCommand implements CommandExecutor {
         if (args.length > 0 && args[0].equals("거절")) {
             String invitedTeam = plugin.getTeamInviteManager().getInvite(p.getUniqueId());
             if (invitedTeam == null) {
-                p.sendMessage("§c거절할 초대장이 없습니다.");
+                p.sendMessage(TextComponent.fromLegacyText("§c거절할 초대장이 없습니다."));
                 return true;
             }
 
             plugin.getTeamInviteManager().removeInvite(p.getUniqueId());
-            p.sendMessage("§c팀 초대를 거절했습니다.");
+            p.sendMessage(TextComponent.fromLegacyText("§c팀 초대를 거절했습니다."));
             return true;
         }
 
@@ -73,13 +74,13 @@ public class TeamCommand implements CommandExecutor {
         // --- 4. 팀 생성 로직 ---
         String teamName = args[0];
         if (!plugin.getTeamMain().getPlayerTeam(p.getUniqueId()).equals("방랑자")) {
-            p.sendMessage("§c이미 팀에 소속되어 있습니다.");
+            p.sendMessage(TextComponent.fromLegacyText("§c이미 팀에 소속되어 있습니다."));
             return true;
         }
 
         // 기준서: /팀 <이름> 명령어로 누구나 생성 가능, 생성자가 팀장이 됨
         plugin.getTeamMain().createTeam(teamName, p);
-        p.sendMessage("§a팀 '" + teamName + "'이 생성되었습니다. 당신은 팀장입니다.");
+        p.sendMessage(TextComponent.fromLegacyText("§a팀 '" + teamName + "'이 생성되었습니다. 당신은 팀장입니다."));
         return true;
     }
 }

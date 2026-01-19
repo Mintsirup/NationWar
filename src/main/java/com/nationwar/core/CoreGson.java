@@ -10,7 +10,7 @@ public class CoreGson {
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     public static class CoreInfo {
-        public String owner = "없음";
+        public String owner = "\uD844\uDCB5";
         public double hp = 5000.0;
         public double x, y, z;
         public int id;

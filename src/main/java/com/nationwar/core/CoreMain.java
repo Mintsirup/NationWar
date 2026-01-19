@@ -158,10 +158,22 @@ public class CoreMain {
                 .orElse("없음");
 
         if (winner.equals("없음")) {
-            Bukkit.broadcastMessage("§c§l[!] §f점령 시간이 종료되었습니다.");
+            Bukkit.broadcastMessage("§c§l[!] §f점령된 코어가 없어 우승팀 없이 종료되었습니다.");
             stopGame("없음");
         } else {
-            plugin.coreDamageListener.announceVictory(winner); // Listener에 있는 메서드를 호출하거나 CoreMain으로 옮겨서 호출
+            // plugin.coreDamageListener 대신 안전하게 getter를 사용하거나,
+            // 변수가 null인지 확인 후 호출합니다.
+            if (plugin.getCoreDamageListener() != null) {
+                plugin.getCoreDamageListener().announceVictory(winner);
+            } else {
+                // [수정] 메서드를 통해 가져오고, 혹시 모를 상황을 위해 null 체크를 한 번 더 합니다.
+                if (plugin.getCoreDamageListener() != null) {
+                    plugin.getCoreDamageListener().announceVictory(winner);
+                } else {
+                    Bukkit.broadcastMessage("§6§l[!] 최종 우승팀: §e" + winner);
+                    stopGame(winner);
+                }
+            }
         }
     }
 

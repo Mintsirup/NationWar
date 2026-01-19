@@ -29,14 +29,20 @@ public class NationWar extends JavaPlugin {
         instance = this;
         if (!getDataFolder().exists()) getDataFolder().mkdirs();
 
-        // 1. 매니저들 초기화
+
+        // 2. [중요] 감지기 객체를 생성하여 변수에 저장 (이게 null 에러 해결책)
+        // 1. 매니저들 초기화 (순서 조정)
         this.teamInviteManager = new TeamInviteManager();
         this.teamMain = new TeamMain(this);
-        this.coreMain = new CoreMain(this);
+
+        // [중요] 리스너를 CoreMain보다 먼저 생성해야 합니다!
+        this.coreDamageListener = new CoreDamageListener(this);
+
+        this.coreMain = new CoreMain(this); // 이제 CoreMain이 내부에서 리스너를 불러도 안전합니다.
         this.tpaMain = new TpaMain(this);
         this.guiManager = new GUIManager(this);
 
-        // 2. [중요] 감지기 객체를 생성하여 변수에 저장 (이게 null 에러 해결책)
+        // 2. 거리 감지기 객체 생성
         this.distanceDetect = new PlayerDistanceDetect(this);
         this.distanceDetect.runTaskTimer(this, 0L, 20L);
 
@@ -52,7 +58,7 @@ public class NationWar extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new JoinListener(this), this);
         getServer().getPluginManager().registerEvents(new MenuClickListener(this), this);
         getServer().getPluginManager().registerEvents(new BlockProtection(), this);
-        getServer().getPluginManager().registerEvents(new CoreDamageListener(this), this);
+        getServer().getPluginManager().registerEvents(this.coreDamageListener, this);
         getServer().getPluginManager().registerEvents(new PvpListener(this), this);
         getServer().getPluginManager().registerEvents(new InventoryCloseListener(this), this);
 
@@ -76,6 +82,10 @@ public class NationWar extends JavaPlugin {
         }
 
         getLogger().info("NationWar 플러그인이 안전하게 종료되었습니다.");
+    }
+
+    public CoreDamageListener getCoreDamageListener() {
+        return coreDamageListener;
     }
 
     public static NationWar getInstance() { return instance; }
