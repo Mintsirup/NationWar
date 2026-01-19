@@ -1,14 +1,12 @@
 package com.nationwar.core;
 
 import com.nationwar.NationWar;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Ghast;
+import org.bukkit.entity.Player;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitRunnable;
 import java.io.File;
@@ -143,22 +141,6 @@ public class CoreMain {
         Bukkit.broadcastMessage("§6§l[!] §f모든 코어 가스트가 성공적으로 재생성되었습니다.");
     }
 
-    public void startTimeChecker() {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                LocalDateTime now = LocalDateTime.now();
-
-                // 저녁 8시 정각에 점령전 강제 종료 및 정산
-                if (now.getHour() == 11 && now.getMinute() == 0 && now.getSecond() == 0) {
-                    if (isGameStarted()) {
-                        determineWinnerByCount(); // 가장 많이 점령한 팀 찾기
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 20L);
-    }
-
     private void determineWinnerByCount() {
         Map<String, Integer> score = new HashMap<>();
 
@@ -200,6 +182,52 @@ public class CoreMain {
         }.runTaskTimer(plugin, 0L, 20L);
     }
 
+    public void startTimeChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                LocalDateTime now = LocalDateTime.now();
+                int hour = now.getHour();
+                int min = now.getMinute();
+                int sec = now.getSecond();
+
+                // 1. [자동 시작 알림] 저녁 7시 정각 (19:00:00)
+                if (hour == 19 && min == 0 && sec == 0) {
+                    // 요일 체크 (월, 수, 금, 일)
+                    if (isCaptureTime()) {
+                        broadcastStartMessage();
+                        setGameStarted(true); // 관리자가 명령어를 안 쳐도 자동으로 보호막 해제
+                    }
+                }
+
+                // 2. [자동 종료 및 정산] 저녁 8시 정각 (20:00:00)
+                if (hour == 20 && min == 0 && sec == 0) {
+                    if (isGameStarted()) {
+                        determineWinnerByCount();
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
+    }
+
+    private void broadcastStartMessage() {
+        Bukkit.broadcastMessage("");
+        Bukkit.broadcastMessage("§8§l[ §4§l! §8§l] §f------------------------------------------ §8§l[ §4§l! §8§l]");
+        Bukkit.broadcastMessage("");
+        Bukkit.broadcastMessage("   §c§l▣ 국가전쟁 점령 시간 ▣");
+        Bukkit.broadcastMessage("");
+        Bukkit.broadcastMessage("   §7지금 이 순간부터 8시까지 점령시간이 활성화되었습니다.");
+        Bukkit.broadcastMessage("   §7자신의 코어를 지키고, 적의 코어를 꿰뚫으십시오.");
+        Bukkit.broadcastMessage("");
+        Bukkit.broadcastMessage("§8§l[ §4§l! §8§l] §f------------------------------------------ §8§l[ §4§l! §8§l]");
+        Bukkit.broadcastMessage("");
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendTitle("§4§lWAR BEGINS", "§e지금부터 모든 코어의 보호막이 해제됩니다!", 10, 70, 20);
+            p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.8f);
+        }
+    }
+
     public boolean isCaptureTime() {
         LocalDateTime now = LocalDateTime.now();
         DayOfWeek day = now.getDayOfWeek();
@@ -208,7 +236,7 @@ public class CoreMain {
         // 월, 수, 금, 일 체크
         boolean isDay = (day == DayOfWeek.MONDAY || day == DayOfWeek.WEDNESDAY ||
                 day == DayOfWeek.FRIDAY || day == DayOfWeek.SUNDAY);
-        boolean isHour = (hour == 10); // 19:00 ~ 19:59
+        boolean isHour = (hour == 19); // 19:00 ~ 19:59
 
         return isDay && isHour;
     }

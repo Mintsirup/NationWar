@@ -103,7 +103,7 @@ public class CoreDamageListener implements Listener {
 
         if (core.owner.equals(teamName)) {
             damager.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent("§9§l[!] 우리 팀의 코어는 공격할 수 없습니다!"));
-            // p.playSound(p.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f); // 선택사항: 거절 효과음
+            //p.playSound(p.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f); // 선택사항: 거절 효과음
             return;
         }
 

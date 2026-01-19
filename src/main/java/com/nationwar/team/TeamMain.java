@@ -108,7 +108,7 @@ public class TeamMain {
         leader.sendMessage(" ");
         leader.sendMessage("§6§l[ 시스템 ] §e" + teamName + " §f팀이 창설되었습니다!");
         leader.sendMessage("§f- §e/메뉴§f를 열어 팀원을 초대하거나 팀 색상을 정하세요.");
-        leader.sendMessage("§f- 점령 시간(월/수/금 19시)에 코어를 공격하여 점령하세요.");
+        leader.sendMessage("§f- 점령 시간(월/수/금/일 19시)에 코어를 공격하여 점령하세요.");
         leader.sendMessage(" ");
         leader.playSound(leader.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1, 1);
     }

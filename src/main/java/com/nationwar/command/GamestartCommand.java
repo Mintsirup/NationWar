@@ -69,10 +69,10 @@ public class GamestartCommand implements CommandExecutor {
                     Bukkit.broadcastMessage("");
                     Bukkit.broadcastMessage("§8§l[ §4§l! §8§l] §f------------------------------------------ §8§l[ §4§l! §8§l]");
                     Bukkit.broadcastMessage("");
-                    Bukkit.broadcastMessage("   §c§l▣ 국가전쟁 점령 시간 선포 ▣");
+                    Bukkit.broadcastMessage("   §c§l▣ 국가전쟁 점령 시간 ▣");
                     Bukkit.broadcastMessage("");
-                    Bukkit.broadcastMessage("   §7지금 이 순간부터 모든 국가의 코어를 공격할 수 있습니다.");
-                    Bukkit.broadcastMessage("   §7자신의 국가를 지키고, 적의 심장을 꿰뚫으십시오.");
+                    Bukkit.broadcastMessage("   §7지금 이 순간부터 8시까지 점령시간이 활성화되었습니다.");
+                    Bukkit.broadcastMessage("   §7자신의 코어를 지키고, 적의 코어를 꿰뚫으십시오.");
                     Bukkit.broadcastMessage("");
                     Bukkit.broadcastMessage("§8§l[ §4§l! §8§l] §f------------------------------------------ §8§l[ §4§l! §8§l]");
                     Bukkit.broadcastMessage("");
