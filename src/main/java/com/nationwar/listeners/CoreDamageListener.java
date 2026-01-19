@@ -47,6 +47,31 @@ public class CoreDamageListener implements Listener {
         }
     }
 
+    @EventHandler
+    public void onGhastDeath(org.bukkit.event.entity.EntityDeathEvent event) {
+        // 1. 죽은 엔티티가 가스트이고 코어 메타데이터가 있는지 확인
+        if (event.getEntity() instanceof Ghast && event.getEntity().hasMetadata("core_id")) {
+            Ghast deadGhast = (Ghast) event.getEntity();
+            int coreId = deadGhast.getMetadata("core_id").get(0).asInt();
+
+            // [중요 수정] 죽은 가스트의 위치(이미 0.5 등이 더해진 상태) 대신,
+            // 우리 JSON 데이터 파일에 저장된 '순수 정수 좌표'를 새로 생성해서 넘깁니다.
+            CoreGson.CoreInfo info = plugin.getCoreMain().getCoreData().cores.get(coreId);
+            Location originalLoc = new Location(deadGhast.getWorld(), info.x, info.y, info.z);
+
+            // 2. 아이템 드롭 방지
+            event.getDrops().clear();
+            event.setDroppedExp(0);
+
+            // 3. 즉시 재생성 (1틱 뒤에 실행)
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                // 이제 originalLoc(정수)을 넘기면, spawnCoreGhast 내부에서 .clone().add()가
+                // 딱 한 번만 실행되어 정확히 블록 중앙에 소환됩니다.
+                plugin.getCoreMain().spawnCoreGhast(coreId, originalLoc);
+            }, 1L);
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onDamage(EntityDamageByEntityEvent event) {
         // 1. 코어 확인
@@ -72,13 +97,20 @@ public class CoreDamageListener implements Listener {
             return;
         }
 
-        // 6. [핵심] 여기서만 타격 허용 및 HP 차감
-        event.setCancelled(false);
-
         Ghast ghast = (Ghast) event.getEntity();
         int coreId = ghast.getMetadata("core_id").get(0).asInt();
         CoreGson.CoreInfo core = plugin.getCoreMain().getCoreData().cores.get(coreId);
 
+        if (core.owner.equals(teamName)) {
+            damager.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent("§9§l[!] 우리 팀의 코어는 공격할 수 없습니다!"));
+            // p.playSound(p.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f); // 선택사항: 거절 효과음
+            return;
+        }
+
+        // [추가] 가스트의 실제 체력을 즉시 회복시켜서 죽지 않게 함
+        ghast.setHealth(1024.0);
+
+        // 우리가 관리하는 5000 체력에서 차감
         double damage = event.getFinalDamage();
         core.hp -= damage;
 
@@ -142,23 +174,24 @@ public class CoreDamageListener implements Listener {
         }
     }
 
-    private void announceVictory(String winnerTeam) {
-        // 1. 전 서버 타이틀 및 공지
+    public void announceVictory(String winnerTeam) {
+        // 1. 전 서버 타이틀 및 화려한 공지
         String title = "§6§lVICTORY";
-        String subtitle = "§e" + winnerTeam + " §f팀이 모든 코어를 점령했습니다!";
+        String subtitle = "§e" + winnerTeam + " §f팀이 국가전쟁에서 우승했습니다!";
 
         for (Player online : Bukkit.getOnlinePlayers()) {
             online.sendTitle(title, subtitle, 20, 100, 20);
-            online.sendMessage("§f-----------------------------------");
-            online.sendMessage("§e§l[!] §f국가전쟁이 끝났습니다!");
-            online.sendMessage("§e최종 우승팀: §f" + winnerTeam);
-            online.sendMessage("§f-----------------------------------");
+            online.playSound(online.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1, 1);
 
-            // 2. 축하 폭죽 소환 (팀 색상에 맞춰 소환 가능)
+            online.sendMessage("§f§m-----------------------------------");
+            online.sendMessage("§e§l[!] §f국가전쟁 종료");
+            online.sendMessage("§e최종 우승팀: §f" + winnerTeam);
+            online.sendMessage("§f§m-----------------------------------");
+
             spawnVictoryFireworks(online.getLocation());
         }
 
-        // 3. 게임 종료 후 처리 (예: 모든 가스트 제거)
-        plugin.getCoreMain().removeAllCoreGhasts();
+        // 2. [핵심] 게임 종료 로직 실행 (보호막 가동 및 가스트 제거)
+        plugin.getCoreMain().stopGame(winnerTeam);
     }
 }

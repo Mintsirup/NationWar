@@ -15,12 +15,14 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class NationWar extends JavaPlugin {
     private static NationWar instance;
+    public Object getCoreDamageListener;
     private TeamMain teamMain;
     private CoreMain coreMain;
     private TpaMain tpaMain;
     private GUIManager guiManager; // 추가
     private TeamInviteManager teamInviteManager;
     private PlayerDistanceDetect distanceDetect; // 변수 선언
+    public CoreDamageListener coreDamageListener;
 
     @Override
     public void onEnable() {
