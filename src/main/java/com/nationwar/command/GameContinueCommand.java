@@ -1,13 +1,14 @@
 package com.nationwar.command;
 
 import com.nationwar.NationWar;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import net.md_5.bungee.api.chat.TextComponent;
+
 
 public class GameContinueCommand implements CommandExecutor {
     private final NationWar plugin;
@@ -16,6 +17,12 @@ public class GameContinueCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.isOp()) return false;
+
+          if (!sender.hasPermission("nationwar.admin")) {
+            sender.sendMessage(TextComponent.fromLegacyText("§c§l[!] §c권한이 부족합니다."));
+            return true;
+          }
+        
 
         plugin.getCoreMain().respawnAllCores();
         plugin.getCoreMain().setGameStarted(true);

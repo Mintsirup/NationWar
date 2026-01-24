@@ -141,42 +141,6 @@ public class CoreMain {
         Bukkit.broadcastMessage("§6§l[!] §f모든 코어 가스트가 성공적으로 재생성되었습니다.");
     }
 
-    private void determineWinnerByCount() {
-        Map<String, Integer> score = new HashMap<>();
-
-        // 각 팀별 점령 개수 계산
-        for (CoreGson.CoreInfo core : coreData.cores) {
-            if (!core.owner.equals("없음")) {
-                score.put(core.owner, score.getOrDefault(core.owner, 0) + 1);
-            }
-        }
-
-        // 가장 높은 점수를 가진 팀 찾기
-        String winner = score.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .map(Map.Entry::getKey)
-                .orElse("없음");
-
-        if (winner.equals("없음")) {
-            Bukkit.broadcastMessage("§c§l[!] §f점령된 코어가 없어 우승팀 없이 종료되었습니다.");
-            stopGame("없음");
-        } else {
-            // plugin.coreDamageListener 대신 안전하게 getter를 사용하거나,
-            // 변수가 null인지 확인 후 호출합니다.
-            if (plugin.getCoreDamageListener() != null) {
-                plugin.getCoreDamageListener().announceVictory(winner);
-            } else {
-                // [수정] 메서드를 통해 가져오고, 혹시 모를 상황을 위해 null 체크를 한 번 더 합니다.
-                if (plugin.getCoreDamageListener() != null) {
-                    plugin.getCoreDamageListener().announceVictory(winner);
-                } else {
-                    Bukkit.broadcastMessage("§6§l[!] 최종 우승팀: §e" + winner);
-                    stopGame(winner);
-                }
-            }
-        }
-    }
-
     public void startCaptureEvent() {
         new BukkitRunnable() {
             int count = 5;
@@ -195,32 +159,65 @@ public class CoreMain {
     }
 
     public void startTimeChecker() {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                LocalDateTime now = LocalDateTime.now();
-                int hour = now.getHour();
-                int min = now.getMinute();
-                int sec = now.getSecond();
+      new BukkitRunnable() {
+        @Override
+        public void run() {
+          LocalDateTime now = LocalDateTime.now();
+          int hour = now.getHour();
+          int min = now.getMinute();
+          int sec = now.getSecond();
 
-                // 1. [자동 시작 알림] 저녁 7시 정각 (19:00:00)
-                if (hour == 19 && min == 0 && sec == 0) {
-                    // 요일 체크 (월, 수, 금, 일)
-                    if (isCaptureTime()) {
-                        broadcastStartMessage();
-                        setGameStarted(true); // 관리자가 명령어를 안 쳐도 자동으로 보호막 해제
-                    }
-                }
-
-                // 2. [자동 종료 및 정산] 저녁 8시 정각 (20:00:00)
-                if (hour == 20 && min == 0 && sec == 0) {
-                    if (isGameStarted()) {
-                        determineWinnerByCount();
-                    }
-                }
+            // 1. 점령전 종료 알림 (20:00:00)
+          if (hour == 20 && min == 0 && sec == 0) {
+            if (isGameStarted()) {
+                    // [수정] 우승자 여부와 관계없이 종료 타이틀 출력
+              for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
+                p.sendTitle("§c§lTIME OVER", "§f점령 시간이 종료되었습니다.", 10, 70, 20);
+                p.playSound(p.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+              }
+                    
+              determineWinnerByCount(); // 정산 로직 실행
             }
-        }.runTaskTimer(plugin, 0L, 20L);
+          }
+        }
+    }.runTaskTimer(plugin, 0L, 20L);
+  }
+
+  private void determineWinnerByCount() {
+    Map<String, Integer> score = new HashMap<>();
+    int totalCores = coreData.cores.size(); // 총 코어 개수 (6개)
+
+    // 1. 팀별 점령 개수 계산
+    for (CoreGson.CoreInfo core : coreData.cores) {
+        if (core.owner != null && !core.owner.equals("없음") && !core.owner.isEmpty()) {
+            score.put(core.owner, score.getOrDefault(core.owner, 0) + 1);
+        }
     }
+
+    // 2. 최고 점수 확인
+    int maxScore = score.values().stream().max(Integer::compare).orElse(0);
+
+    // [핵심 로직] 한 팀이 6개(모든 코어)를 점령하지 못했다면 아무 메시지 없이 종료
+    if (maxScore < totalCores) {
+        // 아무 메시지도 띄우지 않고 게임 상태만 정리합니다.
+        stopGame("없음"); 
+        return;
+    }
+
+    // 3. 만약 6개를 다 먹은 팀이 있다면 우승 발표 (이론상 실시간으로 이미 끝났겠지만 안전장치)
+    String winner = score.entrySet().stream()
+            .filter(e -> e.getValue() == totalCores)
+            .map(Map.Entry::getKey)
+            .findFirst()
+            .orElse("없음");
+
+    if (!winner.equals("없음") && plugin.getCoreDamageListener() != null) {
+        plugin.getCoreDamageListener().announceVictory(winner);
+    } else {
+        stopGame("없음");
+    }
+  }
+
 
     private void broadcastStartMessage() {
         Bukkit.broadcastMessage("");

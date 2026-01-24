@@ -7,6 +7,11 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+import net.md_5.bungee.api.chat.TextComponent;
 
 import java.util.Random;
 
@@ -16,6 +21,14 @@ public class GamestartCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+          // OP이거나 해당 권한이 있어야만 실행 가능
+          if (!sender.hasPermission("nationwar.admin")) {
+            sender.sendMessage(TextComponent.fromLegacyText("§c§l[!] §c권한이 부족합니다."));
+            return true;
+          
+          }
+        
+        
         World world = Bukkit.getWorlds().get(0);
         // 기준서: 15000 x 15000 사이즈의 월드보더 설정
         world.getWorldBorder().setCenter(0, 0);
