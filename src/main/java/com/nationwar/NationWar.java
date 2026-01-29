@@ -61,6 +61,7 @@ public class NationWar extends JavaPlugin {
         getServer().getPluginManager().registerEvents(this.coreDamageListener, this);
         getServer().getPluginManager().registerEvents(new PvpListener(this), this);
         getServer().getPluginManager().registerEvents(new InventoryCloseListener(this), this);
+        getServer().getPluginManager().registerEvents(new CombatLogoutListener(this), this);
 
         coreMain.startTimeChecker();
 
