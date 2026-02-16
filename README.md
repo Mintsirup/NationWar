@@ -1,4 +1,4 @@
-# NationWar (초기 스켈레톤)
+# NationWar
 
 설정:
 - Paper: 1.21.10
