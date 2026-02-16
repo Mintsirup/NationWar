@@ -16,13 +16,10 @@ public class GameContinueCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.isOp()) return false;
-
-          if (!sender.hasPermission("nationwar.admin")) {
+        if (!sender.hasPermission("nationwar.admin")) {
             sender.sendMessage(TextComponent.fromLegacyText("§c§l[!] §c권한이 부족합니다."));
             return true;
-          }
-        
+        }
 
         plugin.getCoreMain().respawnAllCores();
         plugin.getCoreMain().setGameStarted(true);

@@ -34,7 +34,7 @@ public class PlayerDistanceDetect extends BukkitRunnable {
             UUID uuid = p.getUniqueId();
             String playerTeam = plugin.getTeamMain().getPlayerTeam(uuid);
             CoreGson.CoreInfo nearestCore = null;
-            double minDistance = 250.0; // 다시 250블록 제한 설정
+            double minDistance = plugin.getConfig().getDouble("core.alert-distance", 250.0);
 
             // 1. 250블록 내에서 가장 가까운 코어 찾기 (팀 상관 없음)
             for (CoreGson.CoreInfo core : plugin.getCoreMain().getCoreData().cores) {

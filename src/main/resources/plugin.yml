@@ -13,6 +13,8 @@ commands:
     usage: /tpa <플레이어>
   국가창고:
     description: 국가 창고를 엽니다.
+  팀탈퇴:
+    description: 현재 소속된 팀에서 탈퇴합니다.
   gamestart:
     description: 전쟁을 시작합니다. (관리자 전용)
     permission: nationwar.admin

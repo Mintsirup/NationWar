@@ -21,6 +21,7 @@ public class GUIManager {
     public void openTeamInviteListMenu(Player p) { new TeamInviteListMenu(plugin).open(p); }
     public void openTeamInviteConfirmMenu(Player p, Player target) { new TeamInviteConfirmMenu(plugin, target).open(p); }
     public void openTeamDeleteConfirmMenu(Player p) { new TeamDeleteConfirmMenu(plugin).open(p); }
+    public void openTeamLeaveConfirmMenu(Player p) { new TeamLeaveConfirmMenu(plugin).open(p); }
     public void openCoreMenu(Player p) { new CoreMenu(plugin).open(p); }
     public void openInfoMenu(Player p) { new InfoMenu(plugin).open(p); }
 

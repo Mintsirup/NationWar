@@ -122,6 +122,16 @@ public class MenuClickListener implements Listener {
             }
         }
 
+        // 7. 팀 탈퇴 확인 (슬롯: 19-확인, 25-취소)
+        else if (title.equals("팀 탈퇴 확인 메뉴")) {
+            if (slot == 19) {
+                plugin.getTeamMain().leaveTeam(p);
+                p.closeInventory();
+            } else if (slot == 25) {
+                p.closeInventory();
+            }
+        }
+
         // 7. 코어 메뉴 (슬롯: 10, 11, 12, 14, 15, 16)
         else if (title.equals("코어 메뉴")) {
             int[] coreSlots = {10, 11, 12, 14, 15, 16};

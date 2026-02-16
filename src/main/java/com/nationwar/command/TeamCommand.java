@@ -28,8 +28,15 @@ public class TeamCommand implements CommandExecutor {
                 return true;
             }
 
-            // 1. 가입 처리 (리스트 존재 여부 확인 추가)
+            // 인원 제한 체크 (최대 10명)
             if (plugin.getTeamMain().getData().teams.containsKey(invitedTeam)) {
+                int currentSize = plugin.getTeamMain().getData().teams.get(invitedTeam).size();
+                int maxMembers = plugin.getConfig().getInt("team.max-members", 10);
+                if (currentSize >= maxMembers) {
+                    p.sendMessage("§c해당 팀은 이미 최대 인원(" + maxMembers + "명)에 도달했습니다.");
+                    plugin.getTeamInviteManager().removeInvite(p.getUniqueId());
+                    return true;
+                }
                 plugin.getTeamMain().getData().teams.get(invitedTeam).add(uuid.toString());
                 plugin.getTeamMain().saveTeams();
             }

@@ -21,26 +21,27 @@ public class GamestartCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-          // OP이거나 해당 권한이 있어야만 실행 가능
-          if (!sender.hasPermission("nationwar.admin")) {
+        // OP이거나 해당 권한이 있어야만 실행 가능
+        if (!sender.hasPermission("nationwar.admin")) {
             sender.sendMessage(TextComponent.fromLegacyText("§c§l[!] §c권한이 부족합니다."));
             return true;
-          
-          }
-        
-        
+
+        }
+
+
         World world = Bukkit.getWorlds().get(0);
-        // 기준서: 15000 x 15000 사이즈의 월드보더 설정
+        int borderSize = plugin.getConfig().getInt("world.border-size", 15000);
+        int spawnRange = plugin.getConfig().getInt("world.spawn-range", 2000);
+
         world.getWorldBorder().setCenter(0, 0);
-        world.getWorldBorder().setSize(15000);
+        world.getWorldBorder().setSize(borderSize);
 
         Random random = new Random();
         for (Player p : Bukkit.getOnlinePlayers()) {
             Location loc;
             while (true) {
-                // 기준서: 2000 x 2000 범위 내 랜덤 텔레포트
-                int x = random.nextInt(2001) - 1000;
-                int z = random.nextInt(2001) - 1000;
+                int x = random.nextInt(spawnRange * 2 + 1) - spawnRange;
+                int z = random.nextInt(spawnRange * 2 + 1) - spawnRange;
                 int y = world.getHighestBlockYAt(x, z);
                 loc = new Location(world, x + 0.5, y + 1, z + 0.5);
 

@@ -23,11 +23,13 @@ public class NationWar extends JavaPlugin {
     private TeamInviteManager teamInviteManager;
     private PlayerDistanceDetect distanceDetect; // 변수 선언
     public CoreDamageListener coreDamageListener;
+    private PvpListener pvpListener;
 
     @Override
     public void onEnable() {
         instance = this;
         if (!getDataFolder().exists()) getDataFolder().mkdirs();
+        saveDefaultConfig(); // config.yml 로드
 
 
         // 2. [중요] 감지기 객체를 생성하여 변수에 저장 (이게 null 에러 해결책)
@@ -50,6 +52,7 @@ public class NationWar extends JavaPlugin {
         getCommand("메뉴").setExecutor(new MenuCommand(this));
         getCommand("gamestart").setExecutor(new GamestartCommand(this));
         getCommand("팀").setExecutor(new TeamCommand(this));
+        getCommand("팀탈퇴").setExecutor(new TeamLeaveCommand(this));
         getCommand("tpa").setExecutor(new TpaCommand(this));
         getCommand("국가창고").setExecutor(new TeamChestCommand(this));
         getCommand("gamecontinue").setExecutor(new GameContinueCommand(this));
@@ -59,7 +62,8 @@ public class NationWar extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new MenuClickListener(this), this);
         getServer().getPluginManager().registerEvents(new BlockProtection(), this);
         getServer().getPluginManager().registerEvents(this.coreDamageListener, this);
-        getServer().getPluginManager().registerEvents(new PvpListener(this), this);
+        this.pvpListener = new PvpListener(this);
+        getServer().getPluginManager().registerEvents(this.pvpListener, this);
         getServer().getPluginManager().registerEvents(new InventoryCloseListener(this), this);
         getServer().getPluginManager().registerEvents(new CombatLogoutListener(this), this);
 
@@ -98,4 +102,5 @@ public class NationWar extends JavaPlugin {
     public PlayerDistanceDetect getDistanceDetect() {
         return distanceDetect;
     }
+    public PvpListener getPvpListener() { return pvpListener; }
 }

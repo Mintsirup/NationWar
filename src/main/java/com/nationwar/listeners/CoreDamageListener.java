@@ -161,9 +161,34 @@ public class CoreDamageListener implements Listener {
     private void handleCapture(CoreGson.CoreInfo core, int id, String team) {
         core.owner = team;
         core.hp = 5000.0;
-        Bukkit.broadcastMessage("§6§l[!] §e" + team + " §f팀이 §6" + id + "번 코어§f를 점령했습니다!");
         plugin.getCoreMain().saveCores();
-        // 승리 판정 로직 호출...
+
+        // 점령 알림 + 전체 현황
+        Bukkit.broadcastMessage(" ");
+        Bukkit.broadcastMessage("§6§l[!] §e" + team + " §f팀이 §6" + id + "번 코어§f를 점령했습니다!");
+        broadcastCoreStatus();
+        Bukkit.broadcastMessage(" ");
+
+        // 승리 판정
+        checkWinner(team);
+    }
+
+    private void broadcastCoreStatus() {
+        java.util.Map<String, Integer> score = new java.util.HashMap<>();
+        int unclaimed = 0;
+        for (com.nationwar.core.CoreGson.CoreInfo c : plugin.getCoreMain().getCoreData().cores) {
+            if (c.owner == null || c.owner.equals("없음") || c.owner.isEmpty()) {
+                unclaimed++;
+            } else {
+                score.put(c.owner, score.getOrDefault(c.owner, 0) + 1);
+            }
+        }
+        StringBuilder sb = new StringBuilder("§7현재 점령 현황 §8| ");
+        for (java.util.Map.Entry<String, Integer> e : score.entrySet()) {
+            sb.append("§e").append(e.getKey()).append(" §f").append(e.getValue()).append("개  ");
+        }
+        if (unclaimed > 0) sb.append("§7미점령 ").append(unclaimed).append("개");
+        Bukkit.broadcastMessage(sb.toString());
     }
 
     @EventHandler

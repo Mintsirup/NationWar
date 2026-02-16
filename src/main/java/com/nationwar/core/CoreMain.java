@@ -66,24 +66,27 @@ public class CoreMain {
         ghast.setMetadata("core_id", new FixedMetadataValue(plugin, id));
     }
 
-    public void checkVictory() { // private -> public 수정
-        // 승리 판정 로직
-    }
-
     public void LoadCores() {
+        // 재시작 시 기존 코어 가스트 및 데이터 초기화 (중복 방지)
+        removeAllCoreGhasts();
+        coreData = new CoreGson.CoreData();
+
         // 기준서: 15000x15000 내 무작위 위치 지면 생성
         World world = Bukkit.getWorlds().get(0);
         Random random = new Random();
-        coreData = new CoreGson.CoreData();
+        int coreCount = plugin.getConfig().getInt("core.count", 6);
+        int coreRange = plugin.getConfig().getInt("world.core-range", 15000);
+        double coreHp = plugin.getConfig().getDouble("core.hp", 5000);
 
-        for (int i = 0; i < 6; i++) {
-            int x = random.nextInt(15001) - 7500;
-            int z = random.nextInt(15001) - 7500;
+        for (int i = 0; i < coreCount; i++) {
+            int x = random.nextInt(coreRange + 1) - coreRange / 2;
+            int z = random.nextInt(coreRange + 1) - coreRange / 2;
             int y = world.getHighestBlockYAt(x, z);
 
             CoreGson.CoreInfo info = new CoreGson.CoreInfo();
             info.id = i;
             info.x = x; info.y = y; info.z = z;
+            info.hp = coreHp;
             coreData.cores.add(info);
 
             Location loc = new Location(world, x, y, z);
@@ -95,14 +98,13 @@ public class CoreMain {
 
     // CoreMain 클래스 안에 추가/수정
     public void stopGame(String winnerTeam) {
-        // 1. 게임 시작 상태 끄기 (이제 아무도 코어를 못 때림)
         setGameStarted(false);
-
-        // 2. 모든 코어 가스트 제거 (서버 깔끔하게)
         removeAllCoreGhasts();
 
-        // 3. 승리 팀에게 자동 보상 (선택 사항)
-        // 예: 모든 팀원에게 돈이나 아이템 지급 로직을 여기에 넣으면 됩니다.
+        // 게임 종료 시 KD 초기화
+        if (plugin.getPvpListener() != null) {
+            plugin.getPvpListener().resetKD();
+        }
 
         Bukkit.getLogger().info("[NationWar] 게임이 종료되었습니다. 우승팀: " + winnerTeam);
     }
@@ -159,64 +161,64 @@ public class CoreMain {
     }
 
     public void startTimeChecker() {
-      new BukkitRunnable() {
-        @Override
-        public void run() {
-          LocalDateTime now = LocalDateTime.now();
-          int hour = now.getHour();
-          int min = now.getMinute();
-          int sec = now.getSecond();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                LocalDateTime now = LocalDateTime.now();
+                int hour = now.getHour();
+                int min = now.getMinute();
+                int sec = now.getSecond();
 
-            // 1. 점령전 종료 알림 (20:00:00)
-          if (hour == 20 && min == 0 && sec == 0) {
-            if (isGameStarted()) {
-                    // [수정] 우승자 여부와 관계없이 종료 타이틀 출력
-              for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
-                p.sendTitle("§c§lTIME OVER", "§f점령 시간이 종료되었습니다.", 10, 70, 20);
-                p.playSound(p.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-              }
-                    
-              determineWinnerByCount(); // 정산 로직 실행
+                // 1. 점령전 종료 알림 (20:00:00)
+                if (hour == 22 && min == 0 && sec == 0) {
+                    if (isGameStarted()) {
+                        // [수정] 우승자 여부와 관계없이 종료 타이틀 출력
+                        for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
+                            p.sendTitle("§c§lTIME OVER", "§f점령 시간이 종료되었습니다.", 10, 70, 20);
+                            p.playSound(p.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                        }
+
+                        determineWinnerByCount(); // 정산 로직 실행
+                    }
+                }
             }
-          }
+        }.runTaskTimer(plugin, 0L, 20L);
+    }
+
+    private void determineWinnerByCount() {
+        Map<String, Integer> score = new HashMap<>();
+        int totalCores = coreData.cores.size(); // 총 코어 개수 (6개)
+
+        // 1. 팀별 점령 개수 계산
+        for (CoreGson.CoreInfo core : coreData.cores) {
+            if (core.owner != null && !core.owner.equals("없음") && !core.owner.isEmpty()) {
+                score.put(core.owner, score.getOrDefault(core.owner, 0) + 1);
+            }
         }
-    }.runTaskTimer(plugin, 0L, 20L);
-  }
 
-  private void determineWinnerByCount() {
-    Map<String, Integer> score = new HashMap<>();
-    int totalCores = coreData.cores.size(); // 총 코어 개수 (6개)
+        // 2. 최고 점수 확인
+        int maxScore = score.values().stream().max(Integer::compare).orElse(0);
 
-    // 1. 팀별 점령 개수 계산
-    for (CoreGson.CoreInfo core : coreData.cores) {
-        if (core.owner != null && !core.owner.equals("없음") && !core.owner.isEmpty()) {
-            score.put(core.owner, score.getOrDefault(core.owner, 0) + 1);
+        // [핵심 로직] 한 팀이 6개(모든 코어)를 점령하지 못했다면 아무 메시지 없이 종료
+        if (maxScore < totalCores) {
+            // 아무 메시지도 띄우지 않고 게임 상태만 정리합니다.
+            stopGame("없음");
+            return;
+        }
+
+        // 3. 만약 6개를 다 먹은 팀이 있다면 우승 발표 (이론상 실시간으로 이미 끝났겠지만 안전장치)
+        String winner = score.entrySet().stream()
+                .filter(e -> e.getValue() == totalCores)
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse("없음");
+
+        if (!winner.equals("없음") && plugin.getCoreDamageListener() != null) {
+            plugin.getCoreDamageListener().announceVictory(winner);
+        } else {
+            stopGame("없음");
         }
     }
-
-    // 2. 최고 점수 확인
-    int maxScore = score.values().stream().max(Integer::compare).orElse(0);
-
-    // [핵심 로직] 한 팀이 6개(모든 코어)를 점령하지 못했다면 아무 메시지 없이 종료
-    if (maxScore < totalCores) {
-        // 아무 메시지도 띄우지 않고 게임 상태만 정리합니다.
-        stopGame("없음"); 
-        return;
-    }
-
-    // 3. 만약 6개를 다 먹은 팀이 있다면 우승 발표 (이론상 실시간으로 이미 끝났겠지만 안전장치)
-    String winner = score.entrySet().stream()
-            .filter(e -> e.getValue() == totalCores)
-            .map(Map.Entry::getKey)
-            .findFirst()
-            .orElse("없음");
-
-    if (!winner.equals("없음") && plugin.getCoreDamageListener() != null) {
-        plugin.getCoreDamageListener().announceVictory(winner);
-    } else {
-        stopGame("없음");
-    }
-  }
 
 
     private void broadcastStartMessage() {
@@ -245,7 +247,7 @@ public class CoreMain {
         // 월, 수, 금, 일 체크
         boolean isDay = (day == DayOfWeek.MONDAY || day == DayOfWeek.WEDNESDAY ||
                 day == DayOfWeek.FRIDAY || day == DayOfWeek.SUNDAY);
-        boolean isHour = (hour == 19); // 19:00 ~ 19:59
+        boolean isHour = (hour >= 19 && hour < 22);
 
         return isDay && isHour;
     }

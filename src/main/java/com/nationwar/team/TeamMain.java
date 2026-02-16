@@ -104,6 +104,7 @@ public class TeamMain {
         List<String> members = new ArrayList<>();
         members.add(leader.getUniqueId().toString());
         data.teams.put(teamName, members);
+        data.leaders.put(teamName, leader.getUniqueId().toString()); // 팀장 등록
         saveTeams();
         leader.sendMessage(" ");
         leader.sendMessage("§6§l[ 시스템 ] §e" + teamName + " §f팀이 창설되었습니다!");
@@ -114,10 +115,39 @@ public class TeamMain {
     }
 
     public void deleteTeam(String teamName) {
-        // 기준서: 팀을 삭제하고 팀원들을 방랑자로 변경
         data.teams.remove(teamName);
         data.colors.remove(teamName);
+        data.leaders.remove(teamName);
         saveTeams();
+    }
+
+    public void leaveTeam(Player player) {
+        String teamName = getPlayerTeam(player.getUniqueId());
+        if (teamName.equals("방랑자")) return;
+
+        String uuid = player.getUniqueId().toString();
+        List<String> members = data.teams.get(teamName);
+        boolean wasLeader = isLeader(teamName, player);
+
+        members.remove(uuid);
+
+        if (members.isEmpty()) {
+            // 마지막 멤버가 나가면 팀 자체 삭제
+            data.teams.remove(teamName);
+            data.colors.remove(teamName);
+            data.leaders.remove(teamName);
+            Bukkit.broadcastMessage("§7[!] §f" + teamName + " 팀이 인원 부족으로 해체되었습니다.");
+        } else if (wasLeader) {
+            // 팀장이 나가면 다음 멤버에게 팀장 이양
+            String newLeaderUUID = members.get(0);
+            data.leaders.put(teamName, newLeaderUUID);
+            org.bukkit.OfflinePlayer newLeader = Bukkit.getOfflinePlayer(java.util.UUID.fromString(newLeaderUUID));
+            Bukkit.broadcastMessage("§7[!] §f" + teamName + " 팀의 새 팀장: §e" + newLeader.getName());
+        }
+
+        saveTeams();
+        updateDisplay(player);
+        player.sendMessage("§f" + teamName + " §7팀에서 탈퇴했습니다.");
     }
 
     public void updateDisplay(Player player) {
