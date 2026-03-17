@@ -36,10 +36,20 @@ public class InventoryCloseListener implements Listener {
         Player player = event.getPlayer();
         String teamName = plugin.getTeamMain().getPlayerTeam(player.getUniqueId());
 
-        // 만약 플레이어가 창고를 열어둔 채로 나갔다면 잠금 강제 해제
+        // 창고를 열어둔 채로 나갔다면 현재 인벤토리 저장 후 잠금 해제
         if (plugin.getTeamMain().isStorageLocked(teamName)) {
+            // 열려있는 인벤토리가 해당 팀 창고인지 확인 후 저장
+            if (player.getOpenInventory() != null) {
+                String title = player.getOpenInventory().getTitle();
+                if (title.contains("국가 창고")) {
+                    plugin.getTeamMain().getTeamChest().close(player, teamName, player.getOpenInventory().getTopInventory());
+                    plugin.getLogger().warning("[Storage] " + player.getName() + "님이 창고 사용 중 퇴장 — 저장 후 잠금 해제 완료.");
+                    return;
+                }
+            }
+            // 인벤토리가 닫혀있는데 잠금만 남은 경우 (비정상 상태) 잠금만 해제
             plugin.getTeamMain().unlockStorage(teamName);
-            plugin.getLogger().warning("[Storage] " + player.getName() + "님이 창고 사용 중 퇴장하여 " + teamName + " 팀 창고 잠금을 강제 해제했습니다.");
+            plugin.getLogger().warning("[Storage] " + player.getName() + "님 퇴장 — 비정상 잠금 강제 해제.");
         }
     }
 }

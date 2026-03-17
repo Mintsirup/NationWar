@@ -73,25 +73,15 @@ public class GamestartCommand implements CommandExecutor {
                         p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 1.0f);
                     }
                 } else {
-                    // 전쟁 시작 실제 연출
+                    // 전쟁 시작 실제 연출 (레이드 혼 효과음은 여기서만)
                     for (Player p : Bukkit.getOnlinePlayers()) {
-                        p.sendTitle("§4§lWAR BEGINS", "§e지금부터 모든 코어의 보호막이 해제됩니다!", 10, 70, 20);
-                        p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.8f);
                         p.playSound(p.getLocation(), Sound.EVENT_RAID_HORN, 1.0f, 1.0f);
                     }
 
-                    Bukkit.broadcastMessage("");
-                    Bukkit.broadcastMessage("§8§l[ §4§l! §8§l] §f------------------------------------------ §8§l[ §4§l! §8§l]");
-                    Bukkit.broadcastMessage("");
-                    Bukkit.broadcastMessage("   §c§l▣ 국가전쟁 점령 시간 ▣");
-                    Bukkit.broadcastMessage("");
-                    Bukkit.broadcastMessage("   §7지금 이 순간부터 8시까지 점령시간이 활성화되었습니다.");
-                    Bukkit.broadcastMessage("   §7자신의 코어를 지키고, 적의 코어를 꿰뚫으십시오.");
-                    Bukkit.broadcastMessage("");
-                    Bukkit.broadcastMessage("§8§l[ §4§l! §8§l] §f------------------------------------------ §8§l[ §4§l! §8§l]");
-                    Bukkit.broadcastMessage("");
+                    // config 기반 안내 메시지 (broadcastStartMessage 위임)
+                    plugin.getCoreMain().broadcastStartMessage();
 
-                    plugin.getCoreMain().setGameStarted(true); // 게임 상태 변경
+                    plugin.getCoreMain().setGameStarted(true);
                     this.cancel();
                 }
                 count--;

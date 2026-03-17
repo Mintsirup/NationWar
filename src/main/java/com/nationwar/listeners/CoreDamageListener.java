@@ -54,8 +54,9 @@ public class CoreDamageListener implements Listener {
             Ghast deadGhast = (Ghast) event.getEntity();
             int coreId = deadGhast.getMetadata("core_id").get(0).asInt();
 
-            // [중요 수정] 죽은 가스트의 위치(이미 0.5 등이 더해진 상태) 대신,
-            // 우리 JSON 데이터 파일에 저장된 '순수 정수 좌표'를 새로 생성해서 넘깁니다.
+            // coreId 범위 초과 방어 (코어 리셋 직후 죽은 가스트 처리)
+            if (coreId < 0 || coreId >= plugin.getCoreMain().getCoreData().cores.size()) return;
+
             CoreGson.CoreInfo info = plugin.getCoreMain().getCoreData().cores.get(coreId);
             Location originalLoc = new Location(deadGhast.getWorld(), info.x, info.y, info.z);
 
@@ -86,7 +87,8 @@ public class CoreDamageListener implements Listener {
 
         // 4. 점령 시간 및 게임 시작 여부 통합 체크
         if (!plugin.getCoreMain().isCaptureTime() || !plugin.getCoreMain().isGameStarted()) {
-            damager.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent("§c§l[!] 보호막 작동 중! (점령 시간이 아닙니다)"));
+            String shieldMsg = plugin.getConfig().getString("format.shield-active", "§c§l[!] 보호막 작동 중! (점령 시간이 아닙니다)");
+            damager.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(shieldMsg));
             return;
         }
 
@@ -108,15 +110,18 @@ public class CoreDamageListener implements Listener {
         }
 
         // [추가] 가스트의 실제 체력을 즉시 회복시켜서 죽지 않게 함
-        ghast.setHealth(1024.0);
+        ghast.setHealth(ghast.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getBaseValue());
 
-        // 우리가 관리하는 5000 체력에서 차감
+        // 우리가 관리하는 코어 체력에서 차감
         double damage = event.getFinalDamage();
         core.hp -= damage;
+        double maxHp = plugin.getConfig().getDouble("core.hp", 5000);
 
-        // 액션바 및 알림 로직 (기존과 동일)
-        damager.spigot().sendMessage(ChatMessageType.ACTION_BAR,
-                new TextComponent("§e[CORE " + coreId + "] §fHP: §c" + (int)core.hp + " §7/ 5000"));
+        String hpBar = plugin.getConfig().getString("format.core-hp-bar", "§e[CORE {id}] §fHP: §c{hp} §7/ {max}")
+                .replace("{id}", String.valueOf(coreId))
+                .replace("{hp}", String.valueOf((int) core.hp))
+                .replace("{max}", String.valueOf((int) maxHp));
+        damager.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(hpBar));
 
         if (core.hp <= 0) {
             handleCapture(core, coreId, teamName);
@@ -126,15 +131,13 @@ public class CoreDamageListener implements Listener {
     private void checkWinner(String potentialWinner) {
         if (potentialWinner.equals("없음") || potentialWinner.equals("방랑자")) return;
 
+        int totalCores = plugin.getCoreMain().getCoreData().cores.size();
         int ownedCount = 0;
         for (CoreGson.CoreInfo core : plugin.getCoreMain().getCoreData().cores) {
-            if (potentialWinner.equals(core.owner)) {
-                ownedCount++;
-            }
+            if (potentialWinner.equals(core.owner)) ownedCount++;
         }
 
-        // 기준서: 6개의 코어를 모두 점령했을 때
-        if (ownedCount >= 6) {
+        if (ownedCount >= totalCores) {
             announceVictory(potentialWinner);
         }
     }
@@ -160,12 +163,14 @@ public class CoreDamageListener implements Listener {
 
     private void handleCapture(CoreGson.CoreInfo core, int id, String team) {
         core.owner = team;
-        core.hp = 5000.0;
+        core.hp = plugin.getConfig().getDouble("core.hp", 5000);
         plugin.getCoreMain().saveCores();
 
         // 점령 알림 + 전체 현황
+        String msg = plugin.getConfig().getString("capture-message.broadcast", "§6§l[!] §e{team} §f팀이 §6{id}번 코어§f를 점령했습니다!")
+                .replace("{team}", team).replace("{id}", String.valueOf(id));
         Bukkit.broadcastMessage(" ");
-        Bukkit.broadcastMessage("§6§l[!] §e" + team + " §f팀이 §6" + id + "번 코어§f를 점령했습니다!");
+        Bukkit.broadcastMessage(msg);
         broadcastCoreStatus();
         Bukkit.broadcastMessage(" ");
 
@@ -177,13 +182,11 @@ public class CoreDamageListener implements Listener {
         java.util.Map<String, Integer> score = new java.util.HashMap<>();
         int unclaimed = 0;
         for (com.nationwar.core.CoreGson.CoreInfo c : plugin.getCoreMain().getCoreData().cores) {
-            if (c.owner == null || c.owner.equals("없음") || c.owner.isEmpty()) {
-                unclaimed++;
-            } else {
-                score.put(c.owner, score.getOrDefault(c.owner, 0) + 1);
-            }
+            if (c.owner == null || c.owner.equals("없음") || c.owner.isEmpty()) unclaimed++;
+            else score.put(c.owner, score.getOrDefault(c.owner, 0) + 1);
         }
-        StringBuilder sb = new StringBuilder("§7현재 점령 현황 §8| ");
+        String prefix = plugin.getConfig().getString("format.core-status-prefix", "§7현재 점령 현황 §8| ");
+        StringBuilder sb = new StringBuilder(prefix);
         for (java.util.Map.Entry<String, Integer> e : score.entrySet()) {
             sb.append("§e").append(e.getKey()).append(" §f").append(e.getValue()).append("개  ");
         }
@@ -201,17 +204,18 @@ public class CoreDamageListener implements Listener {
 
     public void announceVictory(String winnerTeam) {
         // 1. 전 서버 타이틀 및 화려한 공지
-        String title = "§6§lVICTORY";
-        String subtitle = "§e" + winnerTeam + " §f팀이 국가전쟁에서 우승했습니다!";
+        String title    = plugin.getConfig().getString("end-message.victory-title",    "§6§lVICTORY");
+        String subtitle = plugin.getConfig().getString("end-message.victory-subtitle",  "§e{team} §f팀이 국가전쟁에서 우승했습니다!")
+                .replace("{team}", winnerTeam);
 
         for (Player online : Bukkit.getOnlinePlayers()) {
             online.sendTitle(title, subtitle, 20, 100, 20);
             online.playSound(online.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1, 1);
 
-            online.sendMessage("§f§m-----------------------------------");
-            online.sendMessage("§e§l[!] §f국가전쟁 종료");
-            online.sendMessage("§e최종 우승팀: §f" + winnerTeam);
-            online.sendMessage("§f§m-----------------------------------");
+            online.sendMessage(plugin.getConfig().getString("format.victory-separator", "§f§m-----------------------------------"));
+            online.sendMessage(plugin.getConfig().getString("format.victory-header",    "§e§l[!] §f국가전쟁 종료"));
+            online.sendMessage(plugin.getConfig().getString("format.victory-winner",    "§e최종 우승팀: §f{team}").replace("{team}", winnerTeam));
+            online.sendMessage(plugin.getConfig().getString("format.victory-separator", "§f§m-----------------------------------"));
 
             spawnVictoryFireworks(online.getLocation());
         }

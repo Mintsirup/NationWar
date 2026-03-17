@@ -8,11 +8,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-
-import java.util.Arrays;
 import java.util.UUID;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.TextComponent;
 
 public class TpaCommand implements CommandExecutor {
     private final NationWar plugin;
@@ -69,14 +65,12 @@ public class TpaCommand implements CommandExecutor {
 
         plugin.getTpaMain().sendRequest(p, target);
 
-        // 수정: 복합 메시지 조립 방식
-        TextComponent msg = new TextComponent("");
-        msg.addExtra(Arrays.toString(TextComponent.fromLegacyText("§e" + p.getName() + "님의 TPA 요청: ")));
+        TextComponent msg = new TextComponent("§e" + p.getName() + "님의 TPA 요청: ");
 
-        TextComponent accept = new TextComponent(TextComponent.fromLegacyText("§a[수락] "));
+        TextComponent accept = new TextComponent("§a[수락] ");
         accept.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpa 수락"));
 
-        TextComponent deny = new TextComponent(TextComponent.fromLegacyText("§c[거절]"));
+        TextComponent deny = new TextComponent("§c[거절]");
         deny.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpa 거절"));
 
         msg.addExtra(accept);

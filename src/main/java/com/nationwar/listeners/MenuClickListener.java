@@ -18,6 +18,7 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -48,28 +49,28 @@ public class MenuClickListener implements Listener {
             else if (slot == 16) plugin.getGUIManager().openInfoMenu(p);
         }
 
-        // 2. 팀 메뉴 (슬롯: 10, 13, 16)
+        // 2. 팀 메뉴 (슬롯: 10, 13, 16, 22 / 11, 15)
         else if (title.equals("팀 메뉴")) {
             if (plugin.getTeamMain().isLeader(team, p)) {
                 if (slot == 10) plugin.getGUIManager().openTeamColorMenu(p);
                 else if (slot == 13) plugin.getGUIManager().openTeamInviteListMenu(p);
                 else if (slot == 16) plugin.getGUIManager().openTeamDeleteConfirmMenu(p);
+                else if (slot == 22) plugin.getGUIManager().openTeamLeaveConfirmMenu(p);
             } else {
-                if (slot == 13) p.performCommand("국가창고");
+                if (slot == 11) p.performCommand("국가창고");
+                else if (slot == 15) plugin.getGUIManager().openTeamLeaveConfirmMenu(p);
             }
         }
 
         // 3. 팀 색 설정 메뉴 (슬롯: 0~8, 13)
         else if (title.equals("팀 색 설정 메뉴")) {
             if (slot >= 0 && slot <= 8 || slot == 13) {
-                // 아이템의 displayName 대신 Material이나 미리 정의된 이름을 사용해 정확한 ChatColor 매칭
-                String colorName = event.getCurrentItem().getType().name().split("_")[0];
-
-                // 예: RED_CONCRETE -> RED 추출 (기준서 ChatColor와 일치시키기 위함)
-                if (colorName.equals("LIGHT")) colorName = "LIGHT_PURPLE"; // 예외처리 예시
+                // Material 이름 파싱 대신 아이템 displayName → ChatColor 직접 매핑 (LIGHT_BLUE 등 예외 방지)
+                String colorName = resolveColorName(event.getCurrentItem().getType());
+                if (colorName == null) return;
 
                 plugin.getTeamMain().changeColor(team, colorName);
-                p.sendMessage("§a팀 색상이 " + colorName + "(으)로 성공적으로 변경되었습니다.");
+                p.sendMessage("§a팀 색상이 변경되었습니다.");
                 p.closeInventory();
             }
         }
@@ -89,7 +90,9 @@ public class MenuClickListener implements Listener {
         // 5. 팀 초대 확인 (슬롯: 19-수락, 25-취소)
         else if (title.equals("팀 초대 확인 메뉴")) {
             ItemStack head = event.getInventory().getItem(4);
+            if (head == null || !(head.getItemMeta() instanceof SkullMeta)) return;
             SkullMeta meta = (SkullMeta) head.getItemMeta();
+            if (meta.getOwningPlayer() == null) return;
             Player target = Bukkit.getPlayer(meta.getOwningPlayer().getUniqueId());
 
             if (slot == 19 && target != null) { // [확인] 버튼 클릭 시
@@ -132,32 +135,23 @@ public class MenuClickListener implements Listener {
             }
         }
 
-        // 7. 코어 메뉴 (슬롯: 10, 11, 12, 14, 15, 16)
+        // 7. 코어 메뉴 - 동적 슬롯 처리
         else if (title.equals("코어 메뉴")) {
-            int[] coreSlots = {10, 11, 12, 14, 15, 16};
-            for (int i = 0; i < coreSlots.length; i++) {
-                if (slot == coreSlots[i]) {
-                    if (event.getCurrentItem().getType() == Material.BEACON) {
-                        handleCoreTeleport(p, i);
-                    } else {
-                        p.sendMessage("§c해당 코어를 소유하고 있지 않습니다.");
+            List<CoreGson.CoreInfo> cores = plugin.getCoreMain().getCoreData().cores;
+            // 클릭한 슬롯에 아이템이 있고 BEACON이면 텔레포트 (내 팀 코어)
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked != null && clicked.getType() == Material.BEACON) {
+                // 아이템 이름에서 코어 번호 추출 ("§f코어 N")
+                String displayName = clicked.getItemMeta().getDisplayName();
+                try {
+                    int coreId = Integer.parseInt(displayName.replaceAll("§.", "").replace("코어 ", "").trim());
+                    if (coreId >= 0 && coreId < cores.size()) {
+                        handleCoreTeleport(p, coreId);
                     }
-                }
+                } catch (NumberFormatException ignored) {}
+            } else if (clicked != null && clicked.getType() == Material.BARRIER) {
+                p.sendMessage("§c해당 코어를 소유하고 있지 않습니다.");
             }
-        }
-    }
-
-    @EventHandler
-    public void onChestClose(org.bukkit.event.inventory.InventoryCloseEvent event) {
-        String title = event.getView().getTitle();
-        if (title.contains("국가 창고")) {
-            // 타이틀에서 "§0"과 " 국가 창고"를 제거하여 순수 팀 이름 추출
-            String teamName = title.replace("§0", "").replace(" 국가 창고", "");
-
-            // 실시간으로 파일에 저장
-            plugin.getTeamMain().getTeamChest().updateTeamChest(teamName, event.getInventory());
-
-            event.getPlayer().sendMessage("§a§l[!] §f국가 창고의 아이템이 성공적으로 보관되었습니다.");
         }
     }
 
@@ -184,6 +178,22 @@ public class MenuClickListener implements Listener {
 
         target.spigot().sendMessage(accept);
         target.sendMessage("");
+    }
+
+    private String resolveColorName(Material material) {
+        switch (material) {
+            case RED_WOOL:        return "RED";
+            case ORANGE_WOOL:     return "GOLD";
+            case YELLOW_WOOL:     return "YELLOW";
+            case LIME_WOOL:       return "GREEN";
+            case GREEN_WOOL:      return "DARK_GREEN";
+            case LIGHT_BLUE_WOOL: return "AQUA";
+            case BLUE_WOOL:       return "BLUE";
+            case PURPLE_WOOL:     return "DARK_PURPLE";
+            case BLACK_WOOL:      return "BLACK";
+            case WHITE_WOOL:      return "WHITE";
+            default:              return null;
+        }
     }
 
     private void handleCoreTeleport(Player p, int coreId) {

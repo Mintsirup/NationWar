@@ -57,11 +57,11 @@ public class CoreMain {
         ghast.setRemoveWhenFarAway(false);
         ghast.setInvulnerable(false);
 
-        // 가스트 체력 설정 (엔진 한계치 1024)
+        double ghastHp = plugin.getConfig().getDouble("core.ghast-health", 1024.0);
         if (ghast.getAttribute(Attribute.MAX_HEALTH) != null) {
-            ghast.getAttribute(Attribute.MAX_HEALTH).setBaseValue(1024.0);
+            ghast.getAttribute(Attribute.MAX_HEALTH).setBaseValue(ghastHp);
         }
-        ghast.setHealth(1024.0);
+        ghast.setHealth(ghastHp);
 
         ghast.setMetadata("core_id", new FixedMetadataValue(plugin, id));
     }
@@ -134,13 +134,14 @@ public class CoreMain {
     }
 
     public void respawnAllCores() {
-        removeAllCoreGhasts(); // 혹시 남아있을 가스트 중복 방지
+        removeAllCoreGhasts();
 
+        World world = Bukkit.getWorlds().get(0); // 첫 번째 월드 사용 (world 이름 하드코딩 제거)
         for (CoreGson.CoreInfo core : getCoreData().cores) {
-            Location loc = new Location(Bukkit.getWorld("world"), core.x, core.y, core.z); // 월드 이름 확인 필요
+            Location loc = new Location(world, core.x, core.y, core.z);
             spawnCoreGhast(core.id, loc);
         }
-        Bukkit.broadcastMessage("§6§l[!] §f모든 코어 가스트가 성공적으로 재생성되었습니다.");
+        Bukkit.broadcastMessage(plugin.getConfig().getString("format.respawn-complete", "§6§l[!] §f모든 코어 가스트가 성공적으로 재생성되었습니다."));
     }
 
     public void startCaptureEvent() {
@@ -169,16 +170,17 @@ public class CoreMain {
                 int min = now.getMinute();
                 int sec = now.getSecond();
 
-                // 1. 점령전 종료 알림 (20:00:00)
-                if (hour == 22 && min == 0 && sec == 0) {
+                int endHour = plugin.getConfig().getInt("capture-time.end-hour", 22);
+
+                if (hour == endHour && min == 0 && sec == 0) {
                     if (isGameStarted()) {
-                        // [수정] 우승자 여부와 관계없이 종료 타이틀 출력
+                        String timeoverTitle    = plugin.getConfig().getString("end-message.timeover-title",    "§c§lTIME OVER");
+                        String timeoverSubtitle = plugin.getConfig().getString("end-message.timeover-subtitle", "§f점령 시간이 종료되었습니다.");
                         for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
-                            p.sendTitle("§c§lTIME OVER", "§f점령 시간이 종료되었습니다.", 10, 70, 20);
+                            p.sendTitle(timeoverTitle, timeoverSubtitle, 10, 70, 20);
                             p.playSound(p.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                         }
-
-                        determineWinnerByCount(); // 정산 로직 실행
+                        determineWinnerByCount();
                     }
                 }
             }
@@ -221,20 +223,25 @@ public class CoreMain {
     }
 
 
-    private void broadcastStartMessage() {
+    public void broadcastStartMessage() {
+        String sep = plugin.getConfig().getString("format.separator",
+                "§8§l[ §4§l! §8§l] §f------------------------------------------ §8§l[ §4§l! §8§l]");
         Bukkit.broadcastMessage("");
-        Bukkit.broadcastMessage("§8§l[ §4§l! §8§l] §f------------------------------------------ §8§l[ §4§l! §8§l]");
-        Bukkit.broadcastMessage("");
-        Bukkit.broadcastMessage("   §c§l▣ 국가전쟁 점령 시간 ▣");
-        Bukkit.broadcastMessage("");
-        Bukkit.broadcastMessage("   §7지금 이 순간부터 8시까지 점령시간이 활성화되었습니다.");
-        Bukkit.broadcastMessage("   §7자신의 코어를 지키고, 적의 코어를 꿰뚫으십시오.");
-        Bukkit.broadcastMessage("");
-        Bukkit.broadcastMessage("§8§l[ §4§l! §8§l] §f------------------------------------------ §8§l[ §4§l! §8§l]");
+        Bukkit.broadcastMessage(sep);
         Bukkit.broadcastMessage("");
 
+        for (String line : plugin.getConfig().getStringList("start-message.lines")) {
+            Bukkit.broadcastMessage(line);
+        }
+
+        Bukkit.broadcastMessage("");
+        Bukkit.broadcastMessage(sep);
+        Bukkit.broadcastMessage("");
+
+        String title    = plugin.getConfig().getString("start-message.title",    "§4§lWAR BEGINS");
+        String subtitle = plugin.getConfig().getString("start-message.subtitle", "§e지금부터 모든 코어의 보호막이 해제됩니다!");
         for (Player p : Bukkit.getOnlinePlayers()) {
-            p.sendTitle("§4§lWAR BEGINS", "§e지금부터 모든 코어의 보호막이 해제됩니다!", 10, 70, 20);
+            p.sendTitle(title, subtitle, 10, 70, 20);
             p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.8f);
         }
     }
@@ -244,10 +251,14 @@ public class CoreMain {
         DayOfWeek day = now.getDayOfWeek();
         int hour = now.getHour();
 
-        // 월, 수, 금, 일 체크
-        boolean isDay = (day == DayOfWeek.MONDAY || day == DayOfWeek.WEDNESDAY ||
-                day == DayOfWeek.FRIDAY || day == DayOfWeek.SUNDAY);
-        boolean isHour = (hour >= 19 && hour < 22);
+        int startHour = plugin.getConfig().getInt("capture-time.start-hour", 19);
+        int endHour   = plugin.getConfig().getInt("capture-time.end-hour", 22);
+
+        java.util.List<String> configDays = plugin.getConfig().getStringList("capture-time.days");
+        boolean isDay = configDays.stream()
+                .anyMatch(d -> d.equalsIgnoreCase(day.name()));
+
+        boolean isHour = (hour >= startHour && hour < endHour);
 
         return isDay && isHour;
     }

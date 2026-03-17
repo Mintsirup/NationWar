@@ -32,7 +32,8 @@ public class TeamMain {
     }
 
     public void checkLeaderActivity() {
-        long oneWeekMillis = 7L * 24 * 60 * 60 * 1000; // 7일을 밀리초로 계산
+        int inactiveDays = plugin.getConfig().getInt("team.leader-inactive-days", 7);
+        long oneWeekMillis = inactiveDays * 24L * 60 * 60 * 1000;
         long currentTime = System.currentTimeMillis();
         boolean changed = false;
 
@@ -77,39 +78,31 @@ public class TeamMain {
         // 코어 소유권 초기화
         for (CoreGson.CoreInfo core : plugin.getCoreMain().getCoreData().cores) {
             core.owner = "없음";
-            core.hp = 5000;
+            core.hp = plugin.getConfig().getDouble("core.hp", 5000);
         }
         plugin.getCoreMain().saveCores();
 
-        Bukkit.broadcastMessage("§c§l[!] §f모든 팀 데이터와 코어 상태가 초기화되었습니다.");
+        Bukkit.broadcastMessage(plugin.getConfig().getString("format.reset-complete", "§c§l[!] §f모든 팀 데이터와 코어 상태가 초기화되었습니다."));
     }
 
     public void createTeam(String teamName, Player leader) {
-
-        // 1. 이미 존재하는 팀 이름인지 확인
-        if (plugin.getTeamMain().getData().teams.containsKey(teamName)) {
+        if (data.teams.containsKey(teamName)) {
             leader.sendMessage("§c이미 사용 중인 팀 이름입니다. 다른 이름을 선택해주세요.");
             return;
         }
-
-        // 2. 이미 팀에 소속되어 있는지 확인 (기존 로직)
-        if (!plugin.getTeamMain().getPlayerTeam(leader.getUniqueId()).equals("방랑자")) {
+        if (!getPlayerTeam(leader.getUniqueId()).equals("방랑자")) {
             leader.sendMessage("§c이미 소속된 팀이 있습니다. 먼저 팀을 탈퇴해야 합니다.");
             return;
         }
-
-
-        // 기준서: 누구나 생성 가능, 생성자가 팀장이 된다.
-        if (data.teams.containsKey(teamName)) return;
         List<String> members = new ArrayList<>();
         members.add(leader.getUniqueId().toString());
         data.teams.put(teamName, members);
         data.leaders.put(teamName, leader.getUniqueId().toString()); // 팀장 등록
         saveTeams();
         leader.sendMessage(" ");
-        leader.sendMessage("§6§l[ 시스템 ] §e" + teamName + " §f팀이 창설되었습니다!");
-        leader.sendMessage("§f- §e/메뉴§f를 열어 팀원을 초대하거나 팀 색상을 정하세요.");
-        leader.sendMessage("§f- 점령 시간(월/수/금/일 19시)에 코어를 공격하여 점령하세요.");
+        for (String line : plugin.getConfig().getStringList("team-create-message.lines")) {
+            leader.sendMessage(line.replace("{team}", teamName));
+        }
         leader.sendMessage(" ");
         leader.playSound(leader.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1, 1);
     }
